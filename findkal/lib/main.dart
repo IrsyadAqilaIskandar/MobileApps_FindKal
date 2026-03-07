@@ -1,8 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-
-// Placeholder for your LoginPage - ensure login_page.dart exists in your project
-// import 'login_page.dart';
+import 'login.dart';
 
 void main() {
   runApp(const MyApp());
@@ -91,8 +89,15 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   void _navigateToLogin() {
     if (!mounted) return;
     
-    // Replace with your actual LoginPage navigation logic
-    print("Animation complete. Navigating...");
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => const LoginPage(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+        transitionDuration: const Duration(milliseconds: 400),
+      ),
+    );
   }
 
   @override
