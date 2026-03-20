@@ -5,6 +5,8 @@ import 'reset_password.dart';
 import 'enter_code.dart';
 import 'create_new_password.dart';
 import 'register.dart';
+import 'home.dart';
+import 'notification.dart';
 
 void main() {
   runApp(const MyApp());
@@ -28,6 +30,8 @@ class MyApp extends StatelessWidget {
         '/enter-code': (context) => const EnterCodePage(),
         '/create-new-password': (context) => const CreateNewPasswordPage(),
         '/register': (context) => const RegisterPage(),
+        '/home': (context) => const HomePage(),
+        '/notification': (context) => const NotificationPage(),
       },
     );
   }
@@ -40,7 +44,8 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _logoOpacity;
   late Animation<double> _logoScale;
@@ -60,21 +65,21 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     // 2. Logo fades out as circle expands (60% to 85% of duration)
     _logoOpacity = TweenSequence<double>([
       TweenSequenceItem(
-        tween: Tween<double>(begin: 0.0, end: 1.0).chain(CurveTween(curve: Curves.easeIn)),
+        tween: Tween<double>(
+          begin: 0.0,
+          end: 1.0,
+        ).chain(CurveTween(curve: Curves.easeIn)),
         weight: 30,
       ),
+      TweenSequenceItem(tween: ConstantTween<double>(1.0), weight: 30),
       TweenSequenceItem(
-        tween: ConstantTween<double>(1.0),
-        weight: 30,
-      ),
-      TweenSequenceItem(
-        tween: Tween<double>(begin: 1.0, end: 0.0).chain(CurveTween(curve: Curves.easeOut)),
+        tween: Tween<double>(
+          begin: 1.0,
+          end: 0.0,
+        ).chain(CurveTween(curve: Curves.easeOut)),
         weight: 25,
       ),
-      TweenSequenceItem(
-        tween: ConstantTween<double>(0.0),
-        weight: 15,
-      ),
+      TweenSequenceItem(tween: ConstantTween<double>(0.0), weight: 15),
     ]).animate(_controller);
 
     // Logo subtle scale up during the first half
@@ -98,10 +103,11 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
   void _navigateToLogin() {
     if (!mounted) return;
-    
+
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => const LoginPage(),
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            const LoginPage(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
         },
@@ -144,21 +150,18 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               );
             },
           ),
-          
+
           // Logo on top
           AnimatedBuilder(
             animation: _controller,
             builder: (context, child) {
               return Opacity(
                 opacity: _logoOpacity.value,
-                child: Transform.scale(
-                  scale: _logoScale.value,
-                  child: child,
-                ),
+                child: Transform.scale(scale: _logoScale.value, child: child),
               );
             },
             child: Image.asset(
-              'assets/images/logo.png', 
+              'assets/images/logo.png',
               width: 150,
               errorBuilder: (context, error, stackTrace) => const Icon(
                 Icons.location_on,

@@ -63,9 +63,12 @@ class _RegisterPageState extends State<RegisterPage> {
                         color: Colors.black,
                       ),
                       children: [
-                        const TextSpan(text: "Enter the 6-digit code send to you at "),
+                        const TextSpan(
+                          text: "Enter the 6-digit code send to you at ",
+                        ),
                         TextSpan(
-                          text: "+62 ${_phoneController.text.isEmpty ? '80000000000' : _phoneController.text}",
+                          text:
+                              "+62 ${_phoneController.text.isEmpty ? '80000000000' : _phoneController.text}",
                         ),
                       ],
                     ),
@@ -86,22 +89,25 @@ class _RegisterPageState extends State<RegisterPage> {
                         ),
                         child: TextField(
                           textAlign: TextAlign.center,
-                        keyboardType: TextInputType.number,
-                        maxLength: 1,
-                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          counterText: "",
+                          keyboardType: TextInputType.number,
+                          maxLength: 1,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            counterText: "",
+                          ),
+                          onChanged: (value) {
+                            if (value.isNotEmpty && index < 5) {
+                              FocusScope.of(context).nextFocus();
+                            } else if (value.isEmpty && index > 0) {
+                              FocusScope.of(context).previousFocus();
+                            }
+                          },
                         ),
-                        onChanged: (value) {
-                          if (value.isNotEmpty && index < 5) {
-                            FocusScope.of(context).nextFocus();
-                          } else if (value.isEmpty && index > 0) {
-                            FocusScope.of(context).previousFocus();
-                          }
-                        },
                       ),
-                    ),
                     );
                   }),
                 ),
@@ -109,7 +115,11 @@ class _RegisterPageState extends State<RegisterPage> {
                 // Resend text
                 RichText(
                   text: const TextSpan(
-                    style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: Colors.black),
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 13,
+                      color: Colors.black,
+                    ),
                     children: [
                       TextSpan(text: "Didn't get the code? "),
                       TextSpan(
@@ -198,7 +208,10 @@ class _RegisterPageState extends State<RegisterPage> {
                   controller: _nameController,
                   style: const TextStyle(fontFamily: 'Inter', fontSize: 14),
                   decoration: InputDecoration(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 0,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(30),
                       borderSide: const BorderSide(color: Colors.grey),
@@ -233,7 +246,10 @@ class _RegisterPageState extends State<RegisterPage> {
                   controller: _usernameController,
                   style: const TextStyle(fontFamily: 'Inter', fontSize: 14),
                   decoration: InputDecoration(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 0,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(30),
                       borderSide: const BorderSide(color: Colors.grey),
@@ -269,7 +285,10 @@ class _RegisterPageState extends State<RegisterPage> {
                   obscureText: true,
                   style: const TextStyle(fontFamily: 'Inter', fontSize: 14),
                   decoration: InputDecoration(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 0,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(30),
                       borderSide: const BorderSide(color: Colors.grey),
@@ -338,11 +357,17 @@ class _RegisterPageState extends State<RegisterPage> {
                       child: TextField(
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
-                        textAlignVertical: TextAlignVertical.center, 
-                        style: const TextStyle(fontFamily: 'Inter', fontSize: 14),
+                        textAlignVertical: TextAlignVertical.center,
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 14,
+                        ),
                         decoration: const InputDecoration(
                           border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
                           isDense: true,
                         ),
                       ),
@@ -356,11 +381,17 @@ class _RegisterPageState extends State<RegisterPage> {
                         },
                         borderRadius: BorderRadius.circular(15),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFF9ACAD0),
                             borderRadius: BorderRadius.circular(15),
-                            border: Border.all(color: Colors.black54, width: 0.5),
+                            border: Border.all(
+                              color: Colors.black54,
+                              width: 0.5,
+                            ),
                           ),
                           child: const Text(
                             "verify",
@@ -379,7 +410,6 @@ class _RegisterPageState extends State<RegisterPage> {
               ),
 
               const Spacer(), // Use Spacer to push buttons to the bottom without scrolling
-
               // Button Selanjutnya
               SizedBox(
                 width: double.infinity,

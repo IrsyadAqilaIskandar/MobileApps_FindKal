@@ -118,7 +118,14 @@ class _RegisterAddressPageState extends State<RegisterAddressPage> {
                 width: double.infinity,
                 height: 48,
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    // Navigate to Home Page, clearing previous routes (e.g. login/register stack)
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/home',
+                      (route) => false,
+                    );
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFA5D1D6),
                     foregroundColor: Colors.white,

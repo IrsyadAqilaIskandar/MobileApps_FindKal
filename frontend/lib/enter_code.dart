@@ -9,8 +9,10 @@ class EnterCodePage extends StatefulWidget {
 }
 
 class _EnterCodePageState extends State<EnterCodePage> {
-  final List<TextEditingController> _codeControllers =
-      List.generate(5, (_) => TextEditingController());
+  final List<TextEditingController> _codeControllers = List.generate(
+    5,
+    (_) => TextEditingController(),
+  );
   final List<FocusNode> _focusNodes = List.generate(5, (_) => FocusNode());
 
   @override
@@ -79,7 +81,7 @@ class _EnterCodePageState extends State<EnterCodePage> {
               ),
             ),
             const SizedBox(height: 30),
-            
+
             // Code Input Fields
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -122,9 +124,9 @@ class _EnterCodePageState extends State<EnterCodePage> {
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 20),
-            
+
             // Resend Code Text
             Row(
               children: [
@@ -149,7 +151,11 @@ class _EnterCodePageState extends State<EnterCodePage> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        margin: const EdgeInsets.only(bottom: 20, left: 24, right: 24),
+                        margin: const EdgeInsets.only(
+                          bottom: 20,
+                          left: 24,
+                          right: 24,
+                        ),
                         duration: const Duration(seconds: 3),
                       ),
                     );
@@ -167,9 +173,9 @@ class _EnterCodePageState extends State<EnterCodePage> {
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 30),
-            
+
             // Continue Button
             SizedBox(
               width: double.infinity,
