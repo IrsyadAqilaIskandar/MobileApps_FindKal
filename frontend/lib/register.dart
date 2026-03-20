@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'register_address.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -384,7 +385,14 @@ class _RegisterPageState extends State<RegisterPage> {
                 width: double.infinity,
                 height: 48,
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const RegisterAddressPage(),
+                      ),
+                    );
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFA5D1D6),
                     foregroundColor: Colors.white,

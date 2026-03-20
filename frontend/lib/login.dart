@@ -63,7 +63,7 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
 
-          const SizedBox(height: 25),
+          const SizedBox(height: 60),
 
           // Form Section
           Padding(
@@ -141,7 +141,7 @@ class _LoginPageState extends State<LoginPage> {
                       "Masuk",
                       style: TextStyle(
                         fontFamily: 'Arial',
-                        fontSize: 16,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -163,7 +163,7 @@ class _LoginPageState extends State<LoginPage> {
                       'Lupa Kata Sandi?',
                       style: TextStyle(
                         fontFamily: 'Inter',
-                        fontSize: 11,
+                        fontSize: 13,
                         color: Color(0xFF4AA5A6),
                         decoration: TextDecoration.underline,
                         decorationColor: Color(0xFF4AA5A6),
@@ -191,7 +191,7 @@ class _LoginPageState extends State<LoginPage> {
                 "Belum punya akun? Daftar sekarang!",
                 style: TextStyle(
                   fontFamily: 'Inter',
-                  fontSize: 12,
+                  fontSize: 13,
                   color: Color(0xFF4AA5A6),
                   decoration: TextDecoration.underline,
                   decorationColor: Color(0xFF4AA5A6),
@@ -199,7 +199,7 @@ class _LoginPageState extends State<LoginPage> {
               ),
             ),
           ),
-          const SizedBox(height: 30),
+          const SizedBox(height: 50),
         ],
       ),
     );

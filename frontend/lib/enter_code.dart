@@ -137,7 +137,23 @@ class _EnterCodePageState extends State<EnterCodePage> {
                   ),
                 ),
                 InkWell(
-                  onTap: () {},
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text(
+                          "Kode baru sudah dikirim ulang melalui SMS.\nSegera cek inbox kamu",
+                          style: TextStyle(fontFamily: 'Inter', fontSize: 14),
+                        ),
+                        backgroundColor: const Color(0xFF4A4A4A),
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        margin: const EdgeInsets.only(bottom: 20, left: 24, right: 24),
+                        duration: const Duration(seconds: 3),
+                      ),
+                    );
+                  },
                   child: const Text(
                     "Kirim kode baru",
                     style: TextStyle(
