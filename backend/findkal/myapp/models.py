@@ -31,6 +31,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         LOCAL = "local", "Local"
 
     name = models.CharField(max_length=100)
+    username = models.CharField(max_length=50, unique=True, blank=True)
     email = models.EmailField(unique=True)
     nomortelepon = models.CharField(max_length=20, blank=True)
     role = models.CharField(max_length=10, choices=Role.choices, default=Role.USER)
@@ -122,3 +123,38 @@ class PasswordResetToken(models.Model):
 
     def __str__(self):
         return f"ResetToken for {self.user.email} ({'used' if self.is_used else 'active'})"
+
+
+class PendingEmailVerification(models.Model):
+    """
+    Temporary OTP store for pre-registration email verification.
+    No User FK — the record is deleted or marked used once registration completes.
+    """
+    email = models.EmailField(db_index=True)
+    code = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    is_used = models.BooleanField(default=False)
+    is_verified = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def save(self, *args, **kwargs):
+        if not self.pk:
+            self.expires_at = timezone.now() + timezone.timedelta(minutes=OTP_EXPIRY_MINUTES)
+        super().save(*args, **kwargs)
+
+    def is_valid(self):
+        return not self.is_used and timezone.now() < self.expires_at
+
+    def verify(self, code):
+        if self.is_valid() and self.code == code:
+            self.is_used = True
+            self.is_verified = True
+            self.save(update_fields=["is_used", "is_verified"])
+            return True
+        return False
+
+    def __str__(self):
+        return f"PendingOTP for {self.email} ({'verified' if self.is_verified else 'used' if self.is_used else 'active'})"

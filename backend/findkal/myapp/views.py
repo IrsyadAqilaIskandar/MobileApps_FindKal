@@ -1,26 +1,154 @@
+import resend
+from django.conf import settings
 from django.db.models import Q
-from django.core.mail import send_mail
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
-from .models import User, EmailVerification, PasswordResetToken
+from .models import User, EmailVerification, PasswordResetToken, PendingEmailVerification
 
 
 def _send_otp_email(email, code):
-    """
-    Placeholder for email delivery.
-    Replace with your email provider config in settings.py (EMAIL_BACKEND, etc).
-    """
-    send_mail(
-        subject="Kode Verifikasi FindKal",
-        message=f"Kode verifikasi kamu adalah: {code}\nKode ini berlaku selama 10 menit.",
-        from_email=None,  # uses DEFAULT_FROM_EMAIL from settings
-        recipient_list=[email],
-        fail_silently=True,
-    )
+    resend.api_key = settings.RESEND_API_KEY
+    resend.Emails.send({
+        "from": "FindKal <onboarding@resend.dev>",
+        "to": [email],
+        "subject": "Kode Verifikasi FindKal",
+        "text": f"Kode verifikasi kamu adalah: {code}\nKode ini berlaku selama 10 menit.",
+    })
+
+
+# ---------------------------------------------------------------------------
+# Registration — Send email verification OTP
+# POST /api/register/send-verification/
+# Body: { "email": "..." }
+# ---------------------------------------------------------------------------
+class RegisterSendVerificationView(APIView):
+    def post(self, request):
+        email = request.data.get("email", "").strip()
+        if not email:
+            return Response({"error": "Email wajib diisi."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if User.objects.filter(email__iexact=email, is_email_verified=True).exists():
+            return Response(
+                {"error": "Email sudah digunakan oleh akun lain."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        # Invalidate any previous unused OTPs for this email
+        PendingEmailVerification.objects.filter(
+            email__iexact=email, is_used=False
+        ).update(is_used=True)
+
+        code = EmailVerification.generate_code()
+        PendingEmailVerification.objects.create(email=email, code=code)
+        _send_otp_email(email, code)
+
+        return Response({"detail": "Kode verifikasi dikirim ke email kamu."}, status=status.HTTP_200_OK)
+
+
+# ---------------------------------------------------------------------------
+# Registration — Verify email OTP
+# POST /api/register/verify-email/
+# Body: { "email": "...", "code": "123456" }
+# ---------------------------------------------------------------------------
+class RegisterVerifyEmailView(APIView):
+    def post(self, request):
+        email = request.data.get("email", "").strip()
+        code = request.data.get("code", "").strip()
+
+        if not email or not code:
+            return Response({"error": "Email dan kode wajib diisi."}, status=status.HTTP_400_BAD_REQUEST)
+
+        pending = (
+            PendingEmailVerification.objects.filter(email__iexact=email, is_used=False)
+            .order_by("-created_at")
+            .first()
+        )
+
+        if not pending or not pending.verify(code):
+            return Response(
+                {"error": "Kode tidak valid atau sudah kedaluwarsa."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response({"detail": "Email berhasil diverifikasi."}, status=status.HTTP_200_OK)
+
+
+# ---------------------------------------------------------------------------
+# Registration — Create account
+# POST /api/register/
+# Body: { name, username, password, email, negara, provinsi, kota, kecamatan, kelurahan }
+# ---------------------------------------------------------------------------
+class RegisterView(APIView):
+    def post(self, request):
+        name     = request.data.get("name", "").strip()
+        username = request.data.get("username", "").strip()
+        password = request.data.get("password", "")
+        email    = request.data.get("email", "").strip()
+        negara   = request.data.get("negara", "").strip()
+        provinsi = request.data.get("provinsi", "").strip()
+        kota     = request.data.get("kota", "").strip()
+        kecamatan = request.data.get("kecamatan", "").strip()
+        kelurahan = request.data.get("kelurahan", "").strip()
+
+        if not all([name, username, password, email, provinsi, kota, kecamatan, kelurahan]):
+            return Response(
+                {"error": "Semua field wajib diisi."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Confirm email was OTP-verified
+        if not PendingEmailVerification.objects.filter(
+            email__iexact=email, is_verified=True
+        ).exists():
+            return Response(
+                {"error": "Email belum diverifikasi. Silakan verifikasi email terlebih dahulu."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Check email uniqueness
+        if User.objects.filter(email__iexact=email).exists():
+            return Response(
+                {"error": "Email sudah digunakan oleh akun lain."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        # Check username uniqueness
+        if User.objects.filter(username__iexact=username).exists():
+            return Response(
+                {"error": "Username sudah digunakan. Coba username lain."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        # Validate password strength
+        try:
+            validate_password(password)
+        except ValidationError as e:
+            return Response({"error": list(e.messages)}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = User.objects.create_user(
+            email=email,
+            name=name,
+            password=password,
+            username=username,
+            negara=negara or "Indonesia",
+            provinsi=provinsi,
+            kota=kota,
+            kecamatan=kecamatan,
+            kelurahan=kelurahan,
+            is_email_verified=True,
+        )
+
+        # Clean up the pending verification record
+        PendingEmailVerification.objects.filter(email__iexact=email).delete()
+
+        return Response(
+            {"detail": f"Akun {user.username} berhasil dibuat."},
+            status=status.HTTP_201_CREATED,
+        )
 
 
 # ---------------------------------------------------------------------------

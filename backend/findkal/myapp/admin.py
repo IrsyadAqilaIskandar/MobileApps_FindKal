@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User, EmailVerification, PasswordResetToken
+from .models import User, EmailVerification, PasswordResetToken, PendingEmailVerification
 
 
 @admin.register(User)
@@ -41,3 +41,11 @@ class PasswordResetTokenAdmin(admin.ModelAdmin):
     list_filter = ("is_used",)
     search_fields = ("user__email", "user__name")
     readonly_fields = ("token", "created_at", "expires_at")
+
+
+@admin.register(PendingEmailVerification)
+class PendingEmailVerificationAdmin(admin.ModelAdmin):
+    list_display = ("email", "code", "created_at", "expires_at", "is_used")
+    list_filter = ("is_used",)
+    search_fields = ("email",)
+    readonly_fields = ("code", "created_at", "expires_at")
