@@ -210,14 +210,14 @@ class _HomePageState extends State<HomePage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildCircularButton(Icons.add, 28, onTap: () {
+                  _buildCircularButton(icon: Icons.add, size: 28, onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (context) => const BuatUnggahanPage()),
                     );
                   }),
                   const SizedBox(height: 16),
-                  _buildCircularButton(Icons.location_on_outlined, 26),
+                  _buildCircularButton(imageAsset: 'assets/images/location.png', size: 26),
                 ],
               ),
             ),
@@ -319,14 +319,19 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildCircularButton(IconData icon, double size, {VoidCallback? onTap}) {
+  Widget _buildCircularButton({
+    IconData? icon,
+    String? imageAsset,
+    double? size,
+    VoidCallback? onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: 50,
         height: 50,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: const Color(0xFFF3EEE8),
           shape: BoxShape.circle,
           border: Border.all(color: const Color(0xFF4AA5A6), width: 1.5),
           boxShadow: [
@@ -338,7 +343,13 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
         child: Center(
-          child: Icon(icon, color: const Color(0xFF4AA5A6), size: size),
+          child: imageAsset != null
+              ? Image.asset(
+                  imageAsset,
+                  width: size ?? 26,
+                  height: size ?? 26,
+                )
+                  : Icon(icon, color: const Color(0xFF4AA5A6), size: size),
         ),
       ),
     );

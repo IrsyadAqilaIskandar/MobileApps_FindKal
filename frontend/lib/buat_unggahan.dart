@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'services/auth_state.dart';
 
 class BuatUnggahanPage extends StatefulWidget {
@@ -11,6 +13,67 @@ class BuatUnggahanPage extends StatefulWidget {
 class _BuatUnggahanPageState extends State<BuatUnggahanPage> {
   int _selectedRating = 0;
   String _selectedBudget = "";
+  final ImagePicker _picker = ImagePicker();
+  List<XFile> _selectedImages = [];
+
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _addressController = TextEditingController();
+  final TextEditingController _reviewController = TextEditingController();
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _addressController.dispose();
+    _reviewController.dispose();
+    super.dispose();
+  }
+
+  bool get _isFormValid {
+    return _selectedImages.isNotEmpty &&
+           _selectedRating > 0 &&
+           _nameController.text.trim().isNotEmpty &&
+           _addressController.text.trim().isNotEmpty &&
+           _reviewController.text.trim().isNotEmpty &&
+           _selectedBudget.isNotEmpty;
+  }
+
+  Future<void> _pickImages() async {
+    if (_selectedImages.length >= 4) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Maksimal 4 gambar dapat dipilih", style: TextStyle(fontFamily: 'Inter'))),
+      );
+      return;
+    }
+    
+    int remaining = 4 - _selectedImages.length;
+    try {
+      final List<XFile> pickedFiles = await _picker.pickMultiImage();
+      
+      if (pickedFiles.isNotEmpty) {
+        setState(() {
+          if (pickedFiles.length > remaining) {
+            _selectedImages.addAll(pickedFiles.sublist(0, remaining));
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Hanya 4 gambar pertama yang ditambahkan", style: TextStyle(fontFamily: 'Inter'))),
+            );
+          } else {
+            _selectedImages.addAll(pickedFiles);
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint("Error picking images: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Gagal membuka galeri: Pastikan aplikasi sudah di-restart ulang secara penuh (Stop & Run). Error: $e", style: const TextStyle(fontFamily: 'Inter'))),
+      );
+    }
+  }
+
+  void _removeImage(int index) {
+    setState(() {
+      _selectedImages.removeAt(index);
+    });
+  }
 
   void _onBudgetSelected(String budget) {
     setState(() {
@@ -79,20 +142,75 @@ class _BuatUnggahanPageState extends State<BuatUnggahanPage> {
             const SizedBox(height: 24),
 
             // Gambar
-            const Text("Gambar", style: TextStyle(fontFamily: 'Inter', fontSize: 14)),
-            const SizedBox(height: 8),
-            Container(
-              height: 150,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade200,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade400, width: 0.5),
-              ),
-              child: const Center(
-                child: Icon(Icons.camera_alt, color: Colors.white, size: 32),
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text("Gambar", style: TextStyle(fontFamily: 'Inter', fontSize: 14)),
+                if (_selectedImages.isNotEmpty && _selectedImages.length < 4)
+                  GestureDetector(
+                    onTap: _pickImages,
+                    child: const Text("+ Tambah", style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: Color(0xFF4AA5A6), fontWeight: FontWeight.bold)),
+                  ),
+              ],
             ),
+            const SizedBox(height: 8),
+            if (_selectedImages.isEmpty)
+              GestureDetector(
+                onTap: _pickImages,
+                child: Container(
+                  height: 150,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey.shade400, width: 0.5),
+                  ),
+                  child: const Center(
+                    child: Icon(Icons.add_photo_alternate, color: Colors.grey, size: 40),
+                  ),
+                ),
+              )
+            else
+              SizedBox(
+                height: 120,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _selectedImages.length,
+                  itemBuilder: (context, index) {
+                    return Stack(
+                      children: [
+                        Container(
+                          margin: const EdgeInsets.only(right: 12, top: 8),
+                          width: 120,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade300),
+                            image: DecorationImage(
+                              image: FileImage(File(_selectedImages[index].path)),
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          top: 0,
+                          right: 4,
+                          child: GestureDetector(
+                            onTap: () => _removeImage(index),
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: Colors.black54,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.close, color: Colors.white, size: 14),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
             const SizedBox(height: 24),
 
             // Rating Stars
@@ -114,17 +232,17 @@ class _BuatUnggahanPageState extends State<BuatUnggahanPage> {
             // Form inputs
             const Text("Nama tempat", style: TextStyle(fontFamily: 'Inter', fontSize: 13)),
             const SizedBox(height: 8),
-            _buildTextField(),
+            _buildTextField(controller: _nameController),
             const SizedBox(height: 16),
 
             const Text("Alamat", style: TextStyle(fontFamily: 'Inter', fontSize: 13)),
             const SizedBox(height: 8),
-            _buildTextField(maxLines: 2),
+            _buildTextField(maxLines: 2, controller: _addressController),
             const SizedBox(height: 16),
 
             const Text("Ulasan", style: TextStyle(fontFamily: 'Inter', fontSize: 13)),
             const SizedBox(height: 8),
-            _buildTextField(maxLines: 2),
+            _buildTextField(maxLines: 2, controller: _reviewController),
             const SizedBox(height: 24),
 
             // Budget
@@ -159,24 +277,25 @@ class _BuatUnggahanPageState extends State<BuatUnggahanPage> {
         width: double.infinity,
         height: 48,
         child: ElevatedButton(
-          onPressed: () {
+          onPressed: _isFormValid ? () {
             // Handle action
             Navigator.pop(context);
-          },
+          } : null,
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF9ACAD0),
+            disabledBackgroundColor: Colors.grey.shade300,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(24),
             ),
             elevation: 0,
           ),
-          child: const Text(
+          child: Text(
             "Lanjutkan",
             style: TextStyle(
               fontFamily: 'Inter',
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: _isFormValid ? Colors.white : Colors.grey.shade500,
             ),
           ),
         ),
@@ -187,9 +306,11 @@ class _BuatUnggahanPageState extends State<BuatUnggahanPage> {
     );
   }
 
-  Widget _buildTextField({int maxLines = 1}) {
+  Widget _buildTextField({int maxLines = 1, required TextEditingController controller}) {
     return TextField(
+      controller: controller,
       maxLines: maxLines,
+      onChanged: (_) => setState(() {}),
       decoration: InputDecoration(
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
