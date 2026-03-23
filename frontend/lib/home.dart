@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'map_page.dart';
+import 'buat_unggahan.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -209,7 +210,12 @@ class _HomePageState extends State<HomePage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildCircularButton(Icons.add, 28),
+                  _buildCircularButton(Icons.add, 28, onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const BuatUnggahanPage()),
+                    );
+                  }),
                   const SizedBox(height: 16),
                   _buildCircularButton(Icons.location_on_outlined, 26),
                 ],
@@ -313,24 +319,27 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildCircularButton(IconData icon, double size) {
-    return Container(
-      width: 50,
-      height: 50,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        shape: BoxShape.circle,
-        border: Border.all(color: const Color(0xFF4AA5A6), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Center(
-        child: Icon(icon, color: const Color(0xFF4AA5A6), size: size),
+  Widget _buildCircularButton(IconData icon, double size, {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 50,
+        height: 50,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          border: Border.all(color: const Color(0xFF4AA5A6), width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Center(
+          child: Icon(icon, color: const Color(0xFF4AA5A6), size: size),
+        ),
       ),
     );
   }

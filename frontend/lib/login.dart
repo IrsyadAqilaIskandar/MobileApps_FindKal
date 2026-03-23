@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'services/api_service.dart';
+import 'services/auth_state.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -153,8 +154,7 @@ class _LoginPageState extends State<LoginPage> {
                       }
 
                       try {
-                        final user = await ApiService.login(identifier, password);
-                        if (!mounted) return;
+                        final user = await ApiService.login(identifier, password);                          AuthState.currentUser = user;                        if (!mounted) return;
                         // Navigate to Home Page
                         Navigator.pushReplacementNamed(context, '/home');
                       } on ApiException catch (e) {
