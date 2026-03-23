@@ -44,12 +44,15 @@ class _BuatUnggahanPageState extends State<BuatUnggahanPage> {
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // User section
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // User section
             Row(
               children: [
                 const CircleAvatar(
@@ -116,12 +119,12 @@ class _BuatUnggahanPageState extends State<BuatUnggahanPage> {
 
             const Text("Alamat", style: TextStyle(fontFamily: 'Inter', fontSize: 13)),
             const SizedBox(height: 8),
-            _buildTextField(maxLines: 3),
+            _buildTextField(maxLines: 2),
             const SizedBox(height: 16),
 
             const Text("Ulasan", style: TextStyle(fontFamily: 'Inter', fontSize: 13)),
             const SizedBox(height: 8),
-            _buildTextField(maxLines: 3),
+            _buildTextField(maxLines: 2),
             const SizedBox(height: 24),
 
             // Budget
@@ -143,38 +146,44 @@ class _BuatUnggahanPageState extends State<BuatUnggahanPage> {
             ),
 
             const SizedBox(height: 40),
-
-            // Submit button
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton(
-                onPressed: () {
-                  // Handle action
-                  Navigator.pop(context);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF9ACAD0),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  elevation: 0,
-                ),
-                child: const Text(
-                  "Lanjutkan",
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 30),
           ],
         ),
       ),
+    ),
+    Container(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 30),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        height: 48,
+        child: ElevatedButton(
+          onPressed: () {
+            // Handle action
+            Navigator.pop(context);
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF9ACAD0),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            elevation: 0,
+          ),
+          child: const Text(
+            "Lanjutkan",
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      ),
+    ),
+  ],
+),
     );
   }
 
@@ -182,7 +191,8 @@ class _BuatUnggahanPageState extends State<BuatUnggahanPage> {
     return TextField(
       maxLines: maxLines,
       decoration: InputDecoration(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(color: Colors.grey.shade400, width: 0.5),
