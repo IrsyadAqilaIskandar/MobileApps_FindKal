@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'map_search_result_page.dart';
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
@@ -85,7 +86,15 @@ class _MapPageState extends State<MapPage> {
                           // Tombol Cari
                           GestureDetector(
                             onTap: () {
-                              // TODO: implementasi pencarian lokasi
+                              final query = _searchController.text.trim();
+                              if (query.isEmpty) return;
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      MapSearchResultPage(query: query),
+                                ),
+                              );
                             },
                             child: Container(
                               margin: const EdgeInsets.all(5),
@@ -169,7 +178,11 @@ class _MapPageState extends State<MapPage> {
         currentIndex: 1, // Tab Map aktif
         onTap: (index) {
           if (index == 0) {
-            Navigator.pop(context); // Kembali ke Home
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/home',
+              (route) => false,
+            );
           }
           // index 2 → TODO: navigasi ke ProfilePage
         },
