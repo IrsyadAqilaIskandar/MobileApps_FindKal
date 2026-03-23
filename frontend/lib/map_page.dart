@@ -183,8 +183,10 @@ class _MapPageState extends State<MapPage> {
               '/home',
               (route) => false,
             );
+            Navigator.pop(context, 0); // Kembali ke Home
+          } else if (index == 2) {
+            Navigator.pop(context, 2); // Kembali & langsung arahkan ke Profile
           }
-          // index 2 → TODO: navigasi ke ProfilePage
         },
         selectedItemColor: const Color(0xFF4AA5A6),
         unselectedItemColor: Colors.black,

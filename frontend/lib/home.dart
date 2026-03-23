@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'map_page.dart';
 import 'buat_unggahan.dart';
+import 'profile.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -13,12 +14,17 @@ class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   bool _hasUnreadNotification = true;
 
-  void _onItemTapped(int index) {
+  void _onItemTapped(int index) async {
   if (index == 1) {
-    Navigator.push(
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const MapPage()),
     );
+    if (result != null && result is int) {
+      setState(() {
+        _selectedIndex = result;
+      });
+    }
     return;
   }
   setState(() {
@@ -31,10 +37,45 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Stack(
-          children: [
-            SingleChildScrollView(
-              child: Column(
+        child: _selectedIndex == 2 
+            ? const ProfilePage() 
+            : _buildHomeContent(),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
+        selectedItemColor: const Color(0xFF4AA5A6),
+        unselectedItemColor: Colors.black,
+        showSelectedLabels: false,
+        showUnselectedLabels: false,
+        iconSize: 30,
+        type: BottomNavigationBarType.fixed,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.location_on_outlined),
+            activeIcon: Icon(Icons.location_on),
+            label: 'Location',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            activeIcon: Icon(Icons.person),
+            label: 'Profile',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHomeContent() {
+    return Stack(
+      children: [
+        SingleChildScrollView(
+          child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Top Bar
@@ -210,48 +251,19 @@ class _HomePageState extends State<HomePage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildCircularButton(Icons.add, 28, onTap: () {
+                  _buildCircularButton(icon: Icons.add, size: 28, onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (context) => const BuatUnggahanPage()),
                     );
                   }),
                   const SizedBox(height: 16),
-                  _buildCircularButton(Icons.location_on_outlined, 26),
+                  _buildCircularButton(imageAsset: 'assets/images/location.png', size: 26),
                 ],
               ),
             ),
           ],
-        ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        selectedItemColor: const Color(0xFF4AA5A6),
-        unselectedItemColor: Colors.black,
-        showSelectedLabels: false,
-        showUnselectedLabels: false,
-        iconSize: 30,
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.location_on_outlined),
-            activeIcon: Icon(Icons.location_on),
-            label: 'Location',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
-      ),
-    );
+        );
   }
 
   Widget _buildExplorasiCard(int index) {
@@ -319,14 +331,19 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildCircularButton(IconData icon, double size, {VoidCallback? onTap}) {
+  Widget _buildCircularButton({
+    IconData? icon,
+    String? imageAsset,
+    double? size,
+    VoidCallback? onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: 50,
         height: 50,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: const Color(0xFFF3EEE8),
           shape: BoxShape.circle,
           border: Border.all(color: const Color(0xFF4AA5A6), width: 1.5),
           boxShadow: [
@@ -338,7 +355,13 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
         child: Center(
-          child: Icon(icon, color: const Color(0xFF4AA5A6), size: size),
+          child: imageAsset != null
+              ? Image.asset(
+                  imageAsset,
+                  width: size ?? 26,
+                  height: size ?? 26,
+                )
+                  : Icon(icon, color: const Color(0xFF4AA5A6), size: size),
         ),
       ),
     );
