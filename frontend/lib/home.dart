@@ -10,6 +10,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
+  bool _hasUnreadNotification = true;
 
   void _onItemTapped(int index) {
   if (index == 1) {
@@ -76,8 +77,9 @@ class _HomePageState extends State<HomePage> {
                         ),
                         const SizedBox(width: 16),
                         GestureDetector(
-                          onTap: () {
-                            Navigator.pushNamed(context, '/notification');
+                          onTap: () async {
+                            await Navigator.pushNamed(context, '/notification');
+                            if (mounted) setState(() => _hasUnreadNotification = false);
                           },
                           child: Stack(
                             children: [
@@ -86,18 +88,19 @@ class _HomePageState extends State<HomePage> {
                                 color: Color(0xFF4AA5A6),
                                 size: 30,
                               ),
-                              Positioned(
-                                right: 2,
-                                top: 2,
-                                child: Container(
-                                  width: 10,
-                                  height: 10,
-                                  decoration: const BoxDecoration(
-                                    color: Colors.red,
-                                    shape: BoxShape.circle,
+                              if (_hasUnreadNotification)
+                                Positioned(
+                                  right: 2,
+                                  top: 2,
+                                  child: Container(
+                                    width: 10,
+                                    height: 10,
+                                    decoration: const BoxDecoration(
+                                      color: Colors.red,
+                                      shape: BoxShape.circle,
+                                    ),
                                   ),
                                 ),
-                              ),
                             ],
                           ),
                         ),
