@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'map_search_result_page.dart';
+import 'services/search_history.dart';
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
@@ -62,6 +63,7 @@ class _MapPageState extends State<MapPage> {
   void _onSearch() {
     final query = _searchController.text.trim();
     if (query.isEmpty) return;
+    SearchHistory.add(query);
     Navigator.push(
       context,
       MaterialPageRoute(

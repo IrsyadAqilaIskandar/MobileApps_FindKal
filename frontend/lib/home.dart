@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'map_page.dart';
+import 'search_overlay_page.dart';
 import 'buat_unggahan.dart';
 import 'profile.dart';
 
@@ -27,6 +28,13 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _loadUserLocation();
+  }
+
+  void _openSearch() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SearchOverlayPage()),
+    );
   }
 
   Future<void> _loadUserLocation() async {
@@ -122,36 +130,39 @@ class _HomePageState extends State<HomePage> {
                     child: Row(
                       children: [
                         Expanded(
-                          child: Container(
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(30),
-                              border: Border.all(
-                                color: const Color(0xFF4AA5A6),
-                                width: 1.5,
+                          child: GestureDetector(
+                            onTap: _openSearch,
+                            child: Container(
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(30),
+                                border: Border.all(
+                                  color: const Color(0xFF4AA5A6),
+                                  width: 1.5,
+                                ),
                               ),
-                            ),
-                            child: Row(
-                              children: [
-                                const SizedBox(width: 16),
-                                const Icon(
-                                  Icons.search,
-                                  color: Color(0xFF4AA5A6),
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  "Mau ke mana hari ini?",
-                                  style: TextStyle(
-                                    fontFamily: 'Inter',
-                                    fontSize: 14,
-                                    color: const Color(
-                                      0xFF4AA5A6,
-                                    ).withValues(alpha: 0.8),
-                                    fontStyle: FontStyle.italic,
+                              child: Row(
+                                children: [
+                                  const SizedBox(width: 16),
+                                  const Icon(
+                                    Icons.search,
+                                    color: Color(0xFF4AA5A6),
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    "Mau ke mana hari ini?",
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 14,
+                                      color: const Color(
+                                        0xFF4AA5A6,
+                                      ).withValues(alpha: 0.8),
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
