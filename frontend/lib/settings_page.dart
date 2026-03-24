@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'services/auth_state.dart';
+import 'terms_conditions_page.dart';
+import 'privacy_notice_page.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -125,13 +127,23 @@ class SettingsPage extends StatelessWidget {
           _buildMenuItem(
             label: 'Syarat & Ketentuan',
             onTap: () {
-              // TODO: navigasi ke halaman Syarat & Ketentuan
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const TermsConditionsPage(),
+                ),
+              );
             },
           ),
           _buildMenuItem(
             label: 'Pemberitahuan Privasi',
             onTap: () {
-              // TODO: navigasi ke halaman Pemberitahuan Privasi
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const PrivacyNoticePage(),
+                ),
+              );
             },
           ),
 
