@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart';
 import 'map_search_result_page.dart';
 
 class MapPage extends StatefulWidget {
@@ -10,6 +13,17 @@ class MapPage extends StatefulWidget {
 
 class _MapPageState extends State<MapPage> {
   final TextEditingController _searchController = TextEditingController();
+  final MapController _mapController = MapController();
+
+  static const _fallback = LatLng(-0.5022, 117.1536);
+  LatLng? _userLocation;
+  bool _locating = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _requestLocationAndMove();
+  }
 
   @override
   void dispose() {
@@ -17,40 +31,137 @@ class _MapPageState extends State<MapPage> {
     super.dispose();
   }
 
+  Future<void> _requestLocationAndMove() async {
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.whileInUse ||
+        permission == LocationPermission.always) {
+      await _moveToCurrentLocation();
+    }
+    if (mounted) setState(() => _locating = false);
+  }
+
+  Future<void> _moveToCurrentLocation() async {
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings:
+            const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+      final loc = LatLng(position.latitude, position.longitude);
+      if (mounted) {
+        setState(() => _userLocation = loc);
+        _mapController.move(loc, 15);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
+
+  void _onSearch() {
+    final query = _searchController.text.trim();
+    if (query.isEmpty) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MapSearchResultPage(query: query),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Column(
+        child: _locating
+            ? const Center(
+                child: CircularProgressIndicator(color: Color(0xFF4AA5A6)),
+              )
+            : Stack(
           children: [
-            // ── SEARCH BAR ────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            // ── MAP ──────────────────────────────────────────────────────
+            FlutterMap(
+              mapController: _mapController,
+              options: MapOptions(
+                initialCenter: _userLocation ?? _fallback,
+                initialZoom: 15,
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate:
+                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.example.findkal',
+                ),
+                if (_userLocation != null)
+                  MarkerLayer(
+                    markers: [
+                      Marker(
+                        point: _userLocation!,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF4AA5A6),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 3),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.3),
+                                blurRadius: 6,
+                              ),
+                            ],
+                          ),
+                          width: 22,
+                          height: 22,
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+
+            // ── SEARCH BAR OVERLAY ────────────────────────────────────────
+            Positioned(
+              top: 12,
+              left: 16,
+              right: 16,
               child: Row(
                 children: [
-                  // Tombol back
                   GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: Color(0xFF4AA5A6),
-                      size: 20,
+                    onTap: () => Navigator.maybePop(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(9),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.15),
+                            blurRadius: 6,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        color: Color(0xFF4AA5A6),
+                        size: 20,
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 12),
-
-                  // Search field
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Container(
-                      height: 44,
+                      height: 48,
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(30),
-                        border: Border.all(
-                          color: const Color(0xFF4AA5A6),
-                          width: 1.5,
-                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.15),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: Row(
                         children: [
@@ -58,24 +169,25 @@ class _MapPageState extends State<MapPage> {
                           const Icon(
                             Icons.search,
                             color: Color(0xFF4AA5A6),
-                            size: 20,
+                            size: 22,
                           ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: TextField(
                               controller: _searchController,
+                              onSubmitted: (_) => _onSearch(),
                               decoration: InputDecoration(
                                 hintText: 'Cari lokasi...',
                                 hintStyle: TextStyle(
                                   fontFamily: 'Inter',
                                   fontSize: 13,
-                                  color: const Color(0xFF4AA5A6).withOpacity(0.7),
+                                  color: Colors.grey.shade500,
                                   fontStyle: FontStyle.italic,
                                 ),
                                 border: InputBorder.none,
                                 isDense: true,
                                 contentPadding:
-                                    const EdgeInsets.symmetric(vertical: 12),
+                                    const EdgeInsets.symmetric(vertical: 14),
                               ),
                               style: const TextStyle(
                                 fontFamily: 'Inter',
@@ -83,23 +195,12 @@ class _MapPageState extends State<MapPage> {
                               ),
                             ),
                           ),
-                          // Tombol Cari
                           GestureDetector(
-                            onTap: () {
-                              final query = _searchController.text.trim();
-                              if (query.isEmpty) return;
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      MapSearchResultPage(query: query),
-                                ),
-                              );
-                            },
+                            onTap: _onSearch,
                             child: Container(
                               margin: const EdgeInsets.all(5),
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 7),
+                                  horizontal: 14, vertical: 8),
                               decoration: BoxDecoration(
                                 color: const Color(0xFF4AA5A6),
                                 borderRadius: BorderRadius.circular(30),
@@ -123,59 +224,27 @@ class _MapPageState extends State<MapPage> {
               ),
             ),
 
-            // ── MAP PLACEHOLDER ───────────────────────────────────────
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: Colors.grey.shade400,
-                      width: 1,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.map_outlined,
-                          size: 50,
-                          color: Colors.grey.shade600,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Map Placeholder',
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 16,
-                            color: Colors.grey.shade700,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+            // ── MY LOCATION FAB ───────────────────────────────────────────
+            Positioned(
+              bottom: 20,
+              right: 16,
+              child: FloatingActionButton(
+                onPressed: _moveToCurrentLocation,
+                backgroundColor: Colors.white,
+                elevation: 4,
+                child: const Icon(
+                  Icons.my_location,
+                  color: Color(0xFF4AA5A6),
                 ),
               ),
             ),
           ],
         ),
-      ),
+    ),
 
-      // ── BOTTOM NAVIGATION BAR ─────────────────────────────────────
+      // ── BOTTOM NAVIGATION BAR ─────────────────────────────────────────
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 1, // Tab Map aktif
+        currentIndex: 1,
         onTap: (index) {
           if (index == 0) {
             Navigator.pushNamedAndRemoveUntil(
@@ -183,9 +252,8 @@ class _MapPageState extends State<MapPage> {
               '/home',
               (route) => false,
             );
-            Navigator.pop(context, 0); // Kembali ke Home
           } else if (index == 2) {
-            Navigator.pop(context, 2); // Kembali & langsung arahkan ke Profile
+            Navigator.pop(context, 2);
           }
         },
         selectedItemColor: const Color(0xFF4AA5A6),

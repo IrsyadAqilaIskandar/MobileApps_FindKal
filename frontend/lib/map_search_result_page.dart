@@ -1,78 +1,269 @@
+import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 import 'map_direction_page.dart';
 
-class MapSearchResultPage extends StatelessWidget {
-  final String query;
+class _PlaceResult {
+  final String displayName;
+  final double lat;
+  final double lon;
+  final double? distanceMeters;
 
+  _PlaceResult({
+    required this.displayName,
+    required this.lat,
+    required this.lon,
+    this.distanceMeters,
+  });
+
+  factory _PlaceResult.fromJson(Map<String, dynamic> json) {
+    return _PlaceResult(
+      displayName: json['display_name'] as String,
+      lat: double.parse(json['lat'] as String),
+      lon: double.parse(json['lon'] as String),
+    );
+  }
+
+  _PlaceResult withDistance(double meters) =>
+      _PlaceResult(displayName: displayName, lat: lat, lon: lon, distanceMeters: meters);
+}
+
+/// Haversine distance in meters between two lat/lon points.
+double _haversine(double lat1, double lon1, double lat2, double lon2) {
+  const r = 6371000.0;
+  final dLat = (lat2 - lat1) * math.pi / 180;
+  final dLon = (lon2 - lon1) * math.pi / 180;
+  final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+      math.cos(lat1 * math.pi / 180) *
+          math.cos(lat2 * math.pi / 180) *
+          math.sin(dLon / 2) *
+          math.sin(dLon / 2);
+  return r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+}
+
+String _formatDistance(double meters) {
+  if (meters >= 1000) return '${(meters / 1000).toStringAsFixed(1)} km';
+  return '${meters.toInt()} m';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+class MapSearchResultPage extends StatefulWidget {
+  final String query;
   const MapSearchResultPage({super.key, required this.query});
+
+  @override
+  State<MapSearchResultPage> createState() => _MapSearchResultPageState();
+}
+
+class _MapSearchResultPageState extends State<MapSearchResultPage> {
+  final MapController _mapController = MapController();
+  late final TextEditingController _searchController;
+
+  LatLng? _userLocation;
+  List<_PlaceResult> _results = [];
+  _PlaceResult? _selected;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController(text: widget.query);
+    _initLocationThenSearch(widget.query);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  /// Get user location first, then search so results can be sorted by distance.
+  Future<void> _initLocationThenSearch(String query) async {
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.whileInUse ||
+          permission == LocationPermission.always) {
+        final pos = await Geolocator.getCurrentPosition(
+          locationSettings:
+              const LocationSettings(accuracy: LocationAccuracy.high),
+        );
+        if (mounted) {
+          setState(() => _userLocation = LatLng(pos.latitude, pos.longitude));
+        }
+      }
+    } catch (_) {}
+    await _search(query);
+  }
+
+  Future<void> _search(String query) async {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return;
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      // Build query — add viewbox around user so nearby results rank first
+      final params = <String, String>{
+        'q': trimmed,
+        'format': 'json',
+        'limit': '15',
+        'addressdetails': '1',
+      };
+      if (_userLocation != null) {
+        final lat = _userLocation!.latitude;
+        final lon = _userLocation!.longitude;
+        // ±1 degree box (~110 km) — bounded=0 still allows results outside
+        params['viewbox'] = '${lon - 1},${lat + 1},${lon + 1},${lat - 1}';
+        params['bounded'] = '0';
+      }
+      final uri = Uri.https('nominatim.openstreetmap.org', '/search', params);
+      final res = await http.get(uri, headers: {
+        'User-Agent': 'FindKalApp/1.0',
+        'Accept-Language': 'id,en',
+      });
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as List;
+        List<_PlaceResult> results = data
+            .map((e) => _PlaceResult.fromJson(e as Map<String, dynamic>))
+            .toList();
+
+        // Attach distance and sort nearest first if we have user location
+        if (_userLocation != null) {
+          results = results.map((r) {
+            final d = _haversine(
+                _userLocation!.latitude, _userLocation!.longitude, r.lat, r.lon);
+            return r.withDistance(d);
+          }).toList()
+            ..sort((a, b) => a.distanceMeters!.compareTo(b.distanceMeters!));
+        }
+
+        setState(() {
+          _results = results;
+          _selected = results.isNotEmpty ? results.first : null;
+          _loading = false;
+        });
+        if (_selected != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _mapController.move(LatLng(_selected!.lat, _selected!.lon), 15);
+          });
+        }
+      } else {
+        setState(() {
+          _error = 'Gagal mencari lokasi (${res.statusCode})';
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      setState(() {
+        _error = 'Tidak dapat terhubung ke server';
+        _loading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ── SEARCH BAR ─────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+      body: Stack(
+        children: [
+          // ── FULL SCREEN MAP ───────────────────────────────────────────
+          _buildMap(),
+
+          // ── TOP SEARCH BAR OVERLAY ────────────────────────────────────
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: Row(
                 children: [
                   GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: Color(0xFF4AA5A6),
-                      size: 20,
+                    onTap: () => Navigator.maybePop(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(9),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.15),
+                            blurRadius: 6,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        color: Color(0xFF4AA5A6),
+                        size: 20,
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Container(
-                      height: 44,
+                      height: 48,
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(30),
-                        border: Border.all(
-                          color: const Color(0xFF4AA5A6),
-                          width: 1.5,
-                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.15),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: Row(
                         children: [
                           const SizedBox(width: 14),
-                          const Icon(
-                            Icons.search,
-                            color: Color(0xFF4AA5A6),
-                            size: 20,
-                          ),
+                          const Icon(Icons.search,
+                              color: Color(0xFF4AA5A6), size: 20),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: Text(
-                              query,
+                            child: TextField(
+                              controller: _searchController,
+                              onSubmitted: _search,
+                              textInputAction: TextInputAction.search,
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                isDense: true,
+                                contentPadding:
+                                    EdgeInsets.symmetric(vertical: 14),
+                              ),
                               style: const TextStyle(
                                 fontFamily: 'Inter',
                                 fontSize: 13,
                                 color: Colors.black87,
                               ),
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          Container(
-                            margin: const EdgeInsets.all(5),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 7),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF4AA5A6),
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                            child: const Text(
-                              'Cari',
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 13,
+                          GestureDetector(
+                            onTap: () => _search(_searchController.text),
+                            child: Container(
+                              margin: const EdgeInsets.all(5),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF4AA5A6),
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                              child: const Text(
+                                'Cari',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
                               ),
                             ),
                           ),
@@ -83,170 +274,196 @@ class MapSearchResultPage extends StatelessWidget {
                 ],
               ),
             ),
+          ),
 
-            // ── MAP PLACEHOLDER (setengah layar) ───────────────────────
-            Expanded(
-              flex: 5,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: Colors.grey.shade400,
-                      width: 1,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.map_outlined,
-                          size: 50,
-                          color: Colors.grey.shade600,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Map Placeholder',
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 16,
-                            color: Colors.grey.shade700,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+          // ── LOADING OVERLAY ───────────────────────────────────────────
+          if (_loading)
+            Container(
+              color: Colors.black.withValues(alpha: 0.25),
+              child: const Center(
+                child: CircularProgressIndicator(color: Color(0xFF4AA5A6)),
               ),
             ),
 
-            // ── CARD HASIL LOKASI ──────────────────────────────────────
-            Expanded(
-              flex: 4,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: Colors.grey.shade300,
-                      width: 1.5,
+          // ── BOTTOM RESULTS PANEL ──────────────────────────────────────
+          if (!_loading)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.42,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(24)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.12),
+                      blurRadius: 16,
+                      offset: const Offset(0, -4),
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.07),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Drag handle
+                    Container(
+                      margin: const EdgeInsets.only(top: 10, bottom: 6),
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
                       ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      // Foto placeholder
-                      Expanded(
-                        child: Container(
-                          margin: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade300,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: Colors.grey.shade400,
-                              width: 1,
+                    ),
+
+                    if (_error != null || _results.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          children: [
+                            Icon(Icons.search_off,
+                                size: 40, color: Colors.grey.shade400),
+                            const SizedBox(height: 8),
+                            Text(
+                              _error ?? 'Lokasi tidak ditemukan',
+                              style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  color: Colors.grey.shade600),
+                              textAlign: TextAlign.center,
                             ),
-                          ),
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.image_outlined,
-                                  size: 36,
-                                  color: Colors.grey.shade500,
+                          ],
+                        ),
+                      )
+                    else ...[
+                      // Results list
+                      Flexible(
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 4, vertical: 4),
+                          itemCount: _results.length,
+                          separatorBuilder: (context, i) =>
+                              const Divider(height: 1, indent: 52),
+                          itemBuilder: (context, i) {
+                            final r = _results[i];
+                            final isSelected = r == _selected;
+                            return ListTile(
+                              dense: true,
+                              leading: Icon(
+                                Icons.location_on,
+                                color: isSelected
+                                    ? const Color(0xFF4AA5A6)
+                                    : Colors.grey.shade400,
+                                size: 22,
+                              ),
+                              title: Text(
+                                r.displayName,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 12,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
+                                  color: isSelected
+                                      ? const Color(0xFF4AA5A6)
+                                      : Colors.black87,
                                 ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  'Foto Placeholder',
-                                  style: TextStyle(
-                                    fontFamily: 'Inter',
-                                    fontSize: 13,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                              ),
+                              trailing: r.distanceMeters != null
+                                  ? Text(
+                                      _formatDistance(r.distanceMeters!),
+                                      style: TextStyle(
+                                        fontFamily: 'Inter',
+                                        fontSize: 11,
+                                        color: isSelected
+                                            ? const Color(0xFF4AA5A6)
+                                            : Colors.grey.shade500,
+                                        fontWeight: isSelected
+                                            ? FontWeight.w600
+                                            : FontWeight.normal,
+                                      ),
+                                    )
+                                  : null,
+                              onTap: () {
+                                setState(() => _selected = r);
+                                _mapController.move(LatLng(r.lat, r.lon), 15);
+                              },
+                            );
+                          },
                         ),
                       ),
 
-                      // Tombol Arahkan
+                      // Arahkan button
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
                         child: GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    MapDirectionPage(destination: query),
-                              ),
-                            );
-                          },
+                          onTap: _selected == null
+                              ? null
+                              : () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => MapDirectionPage(
+                                        destinationName:
+                                            _selected!.displayName,
+                                        destination: LatLng(
+                                            _selected!.lat, _selected!.lon),
+                                      ),
+                                    ),
+                                  );
+                                },
                           child: Container(
                             width: double.infinity,
-                            height: 46,
+                            height: 48,
                             decoration: BoxDecoration(
                               color: const Color(0xFF4AA5A6),
                               borderRadius: BorderRadius.circular(30),
                             ),
                             child: const Center(
-                              child: Text(
-                                'Arahkan',
-                                style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.directions,
+                                      color: Colors.white, size: 20),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Arahkan',
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
                         ),
                       ),
                     ],
-                  ),
+                  ],
                 ),
               ),
             ),
-          ],
-        ),
+        ],
       ),
 
-      // ── BOTTOM NAVIGATION BAR ──────────────────────────────────────
+      // ── BOTTOM NAVIGATION BAR ─────────────────────────────────────────
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: 1,
         onTap: (index) {
           if (index == 0) {
             Navigator.pushNamedAndRemoveUntil(
-              context,
-              '/home',
-              (route) => false,
-            );
+                context, '/home', (route) => false);
           }
-          // index 2 → TODO: ProfilePage
         },
         selectedItemColor: const Color(0xFF4AA5A6),
         unselectedItemColor: Colors.black,
@@ -272,6 +489,65 @@ class MapSearchResultPage extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildMap() {
+    if (_selected == null && !_loading) {
+      return Container(color: Colors.grey.shade200);
+    }
+    final center = _selected != null
+        ? LatLng(_selected!.lat, _selected!.lon)
+        : const LatLng(-0.5022, 117.1536);
+    return FlutterMap(
+      mapController: _mapController,
+      options: MapOptions(
+        initialCenter: center,
+        initialZoom: 15,
+      ),
+      children: [
+        TileLayer(
+          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          userAgentPackageName: 'com.example.findkal',
+          keepBuffer: 5,
+        ),
+        if (_userLocation != null)
+          MarkerLayer(
+            markers: [
+              Marker(
+                point: _userLocation!,
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF4AA5A6),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 3),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        blurRadius: 6,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        if (_selected != null)
+          MarkerLayer(
+            markers: [
+              Marker(
+                point: LatLng(_selected!.lat, _selected!.lon),
+                child: const Icon(
+                  Icons.location_pin,
+                  color: Color(0xFFE53935),
+                  size: 42,
+                ),
+              ),
+            ],
+          ),
+      ],
     );
   }
 }

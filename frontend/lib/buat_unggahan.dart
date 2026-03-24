@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'services/auth_state.dart';
+import 'models/unggahan_model.dart';
 
 class BuatUnggahanPage extends StatefulWidget {
   const BuatUnggahanPage({super.key});
@@ -14,7 +15,7 @@ class _BuatUnggahanPageState extends State<BuatUnggahanPage> {
   int _selectedRating = 0;
   String _selectedBudget = "";
   final ImagePicker _picker = ImagePicker();
-  List<XFile> _selectedImages = [];
+  final List<XFile> _selectedImages = [];
 
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
@@ -28,14 +29,16 @@ class _BuatUnggahanPageState extends State<BuatUnggahanPage> {
     super.dispose();
   }
 
-  bool get _isFormValid {
-    return _selectedImages.isNotEmpty &&
-           _selectedRating > 0 &&
-           _nameController.text.trim().isNotEmpty &&
-           _addressController.text.trim().isNotEmpty &&
-           _reviewController.text.trim().isNotEmpty &&
-           _selectedBudget.isNotEmpty;
-  }
+  UnggahanModel get _currentModel => UnggahanModel(
+        images: List.unmodifiable(_selectedImages),
+        rating: _selectedRating,
+        namaTempat: _nameController.text,
+        alamat: _addressController.text,
+        ulasan: _reviewController.text,
+        budget: _selectedBudget,
+      );
+
+  bool get _isFormValid => _currentModel.isValid;
 
   Future<void> _pickImages() async {
     if (_selectedImages.length >= 4) {
@@ -63,6 +66,7 @@ class _BuatUnggahanPageState extends State<BuatUnggahanPage> {
       }
     } catch (e) {
       debugPrint("Error picking images: $e");
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Gagal membuka galeri: Pastikan aplikasi sudah di-restart ulang secara penuh (Stop & Run). Error: $e", style: const TextStyle(fontFamily: 'Inter'))),
       );
@@ -278,7 +282,8 @@ class _BuatUnggahanPageState extends State<BuatUnggahanPage> {
         height: 48,
         child: ElevatedButton(
           onPressed: _isFormValid ? () {
-            // Handle action
+            final model = _currentModel;
+            debugPrint(model.toString());
             Navigator.pop(context);
           } : null,
           style: ElevatedButton.styleFrom(

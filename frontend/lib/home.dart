@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart';
 import 'map_page.dart';
 import 'buat_unggahan.dart';
 import 'profile.dart';
@@ -13,6 +16,41 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   bool _hasUnreadNotification = true;
+
+  // Map preview state
+  static const LatLng _defaultCenter = LatLng(-0.5022, 117.1536);
+  LatLng _mapCenter = _defaultCenter;
+  LatLng? _userLocation;
+  final MapController _mapController = MapController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserLocation();
+  }
+
+  Future<void> _loadUserLocation() async {
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.whileInUse ||
+        permission == LocationPermission.always) {
+      try {
+        final position = await Geolocator.getCurrentPosition(
+          locationSettings:
+              const LocationSettings(accuracy: LocationAccuracy.high),
+        );
+        if (mounted) {
+          setState(() {
+            _userLocation = LatLng(position.latitude, position.longitude);
+            _mapCenter = _userLocation!;
+          });
+          _mapController.move(_mapCenter, 15);
+        }
+      } catch (_) {}
+    }
+  }
 
   void _onItemTapped(int index) async {
   if (index == 1) {
@@ -109,7 +147,7 @@ class _HomePageState extends State<HomePage> {
                                     fontSize: 14,
                                     color: const Color(
                                       0xFF4AA5A6,
-                                    ).withOpacity(0.8),
+                                    ).withValues(alpha: 0.8),
                                     fontStyle: FontStyle.italic,
                                   ),
                                 ),
@@ -165,46 +203,118 @@ class _HomePageState extends State<HomePage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Map Placeholder
+                  // Map Preview
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: Container(
-                      height: 350,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: Colors.grey.shade400,
-                          width: 1,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 10,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
-                      ),
-                      child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.map_outlined,
-                              size: 50,
-                              color: Colors.grey.shade600,
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              "Map Placeholder",
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 16,
-                                color: Colors.grey.shade700,
-                                fontWeight: FontWeight.bold,
-                              ),
+                    child: GestureDetector(
+                      onTap: () async {
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const MapPage()),
+                        );
+                        if (result != null && result is int && mounted) {
+                          setState(() => _selectedIndex = result);
+                        }
+                      },
+                      child: Container(
+                        height: 350,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.1),
+                              blurRadius: 10,
+                              offset: const Offset(0, 5),
                             ),
                           ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: Stack(
+                            children: [
+                              FlutterMap(
+                                mapController: _mapController,
+                                options: MapOptions(
+                                  initialCenter: _mapCenter,
+                                  initialZoom: 15,
+                                  interactionOptions:
+                                      const InteractionOptions(
+                                    flags: InteractiveFlag.none,
+                                  ),
+                                ),
+                                children: [
+                                  TileLayer(
+                                    urlTemplate:
+                                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                    userAgentPackageName:
+                                        'com.example.findkal',
+                                  ),
+                                  if (_userLocation != null)
+                                    MarkerLayer(
+                                      markers: [
+                                        Marker(
+                                          point: _userLocation!,
+                                          child: Container(
+                                            width: 22,
+                                            height: 22,
+                                            decoration: BoxDecoration(
+                                              color:
+                                                  const Color(0xFF4AA5A6),
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                  color: Colors.white,
+                                                  width: 3),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black
+                                                      .withValues(
+                                                          alpha: 0.3),
+                                                  blurRadius: 6,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                ],
+                              ),
+                              // Tap overlay hint
+                              Positioned(
+                                bottom: 12,
+                                right: 12,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white
+                                        .withValues(alpha: 0.9),
+                                    borderRadius:
+                                        BorderRadius.circular(20),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.open_in_full,
+                                          size: 14,
+                                          color: Color(0xFF4AA5A6)),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'Buka Peta',
+                                        style: TextStyle(
+                                          fontFamily: 'Inter',
+                                          fontSize: 12,
+                                          color: Color(0xFF4AA5A6),
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -348,7 +458,7 @@ class _HomePageState extends State<HomePage> {
           border: Border.all(color: const Color(0xFF4AA5A6), width: 1.5),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 8,
               offset: const Offset(0, 4),
             ),
