@@ -56,7 +56,7 @@ final List<Unggahan> dummyUnggahans = [
     address: "Mall Ararasa BSD, Lantai Unit GC, Lengkong Kulon, Kec. Pagedangan, Kabupaten Tangerang, Banten 15331",
     review: "Kafenya lucu, estetik, dan mewah yang aku temukan dekat rumah. Mereka menyajikan kopi yang enak dan berbagai varian salt bread dengan rasa yang lezat.",
     budget: "Rp 50k - Rp 100k",
-    imagePaths: ['assets/images/bnb1.jpg', 'assets/images/bnb2.jpg', 'assets/images/bnb3.jpg', 'assets/images/bnb4.jpg'],
+    imagePaths: ['assets/images/bnb1.jpg', 'assets/images/bnb2.jpg', 'assets/images/bnb3.jpg'],
   ),
   Unggahan(
     userName: "Kaatiya",

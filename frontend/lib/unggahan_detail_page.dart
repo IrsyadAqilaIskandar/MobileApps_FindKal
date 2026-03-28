@@ -39,6 +39,10 @@ class UnggahanDetailPage extends StatelessWidget {
             ),
           ],
         ),
+        actions: const [
+          BookmarkButton(),
+          SizedBox(width: 8),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
@@ -78,7 +82,7 @@ class UnggahanDetailPage extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 20),
-            _buildImageGallery(),
+            _buildImageGallery(context),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -175,12 +179,34 @@ class UnggahanDetailPage extends StatelessWidget {
     return AssetImage(fallbackImagePath); // Using the post image for the avatar just as a placeholder since we don't have distinct user avatars
   }
 
-  Widget _buildImageGallery() {
+  Widget _buildClickableImage(BuildContext context, int index, {double? width, double? height}) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => FullScreenImageViewer(
+              imagePaths: unggahan.imagePaths,
+              initialIndex: index,
+            ),
+          ),
+        );
+      },
+      child: Image.asset(
+        unggahan.imagePaths[index],
+        fit: BoxFit.cover,
+        width: width,
+        height: height,
+      ),
+    );
+  }
+
+  Widget _buildImageGallery(BuildContext context) {
     int imageCount = unggahan.imagePaths.length;
     if (imageCount == 1) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: Image.asset(unggahan.imagePaths[0], fit: BoxFit.cover, width: double.infinity, height: 250),
+        child: _buildClickableImage(context, 0, width: double.infinity, height: 250),
       );
     } else if (imageCount == 2) {
       return Row(
@@ -190,7 +216,7 @@ class UnggahanDetailPage extends StatelessWidget {
               aspectRatio: 0.9,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Image.asset(unggahan.imagePaths[0], fit: BoxFit.cover),
+                child: _buildClickableImage(context, 0),
               ),
             ),
           ),
@@ -200,7 +226,7 @@ class UnggahanDetailPage extends StatelessWidget {
               aspectRatio: 0.9,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Image.asset(unggahan.imagePaths[1], fit: BoxFit.cover),
+                child: _buildClickableImage(context, 1),
               ),
             ),
           ),
@@ -218,7 +244,7 @@ class UnggahanDetailPage extends StatelessWidget {
                     aspectRatio: 1.4,
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: Image.asset(unggahan.imagePaths[0], fit: BoxFit.cover),
+                      child: _buildClickableImage(context, 0),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -226,7 +252,7 @@ class UnggahanDetailPage extends StatelessWidget {
                     aspectRatio: 1.4,
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: Image.asset(unggahan.imagePaths[1], fit: BoxFit.cover),
+                      child: _buildClickableImage(context, 1),
                     ),
                   ),
                 ],
@@ -236,7 +262,7 @@ class UnggahanDetailPage extends StatelessWidget {
             Expanded(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Image.asset(unggahan.imagePaths[2], fit: BoxFit.cover),
+                child: _buildClickableImage(context, 2),
               ),
             ),
           ],
@@ -252,7 +278,7 @@ class UnggahanDetailPage extends StatelessWidget {
                   aspectRatio: 1.4,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: Image.asset(unggahan.imagePaths[0], fit: BoxFit.cover),
+                    child: _buildClickableImage(context, 0),
                   ),
                 ),
               ),
@@ -262,7 +288,7 @@ class UnggahanDetailPage extends StatelessWidget {
                   aspectRatio: 1.4,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: Image.asset(unggahan.imagePaths[1], fit: BoxFit.cover),
+                    child: _buildClickableImage(context, 1),
                   ),
                 ),
               ),
@@ -276,7 +302,7 @@ class UnggahanDetailPage extends StatelessWidget {
                   aspectRatio: 1.4,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: Image.asset(unggahan.imagePaths[2], fit: BoxFit.cover),
+                    child: _buildClickableImage(context, 2),
                   ),
                 ),
               ),
@@ -286,7 +312,7 @@ class UnggahanDetailPage extends StatelessWidget {
                   aspectRatio: 1.4,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: Image.asset(unggahan.imagePaths[3], fit: BoxFit.cover),
+                    child: _buildClickableImage(context, 3),
                   ),
                 ),
               ),
@@ -296,5 +322,119 @@ class UnggahanDetailPage extends StatelessWidget {
       );
     }
     return const SizedBox.shrink();
+  }
+}
+
+class FullScreenImageViewer extends StatefulWidget {
+  final List<String> imagePaths;
+  final int initialIndex;
+
+  const FullScreenImageViewer({
+    super.key,
+    required this.imagePaths,
+    required this.initialIndex,
+  });
+
+  @override
+  State<FullScreenImageViewer> createState() => _FullScreenImageViewerState();
+}
+
+class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
+  late PageController _pageController;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+        elevation: 0,
+        title: Text(
+          '${_currentIndex + 1} / ${widget.imagePaths.length}',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontFamily: 'Inter',
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        centerTitle: true,
+      ),
+      body: PageView.builder(
+        controller: _pageController,
+        itemCount: widget.imagePaths.length,
+        onPageChanged: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        itemBuilder: (context, index) {
+          return InteractiveViewer(
+            minScale: 1.0,
+            maxScale: 4.0,
+            child: Image.asset(
+              widget.imagePaths[index],
+              fit: BoxFit.contain,
+              width: double.infinity,
+              height: double.infinity,
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class BookmarkButton extends StatefulWidget {
+  const BookmarkButton({super.key});
+
+  @override
+  State<BookmarkButton> createState() => _BookmarkButtonState();
+}
+
+class _BookmarkButtonState extends State<BookmarkButton> {
+  bool isBookmarked = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      icon: Icon(
+        isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+        color: const Color(0xFF4AA5A6),
+        size: 28,
+      ),
+      onPressed: () {
+        setState(() {
+          isBookmarked = !isBookmarked;
+        });
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isBookmarked ? 'Disimpan ke Markah' : 'Dihapus dari Markah',
+              style: const TextStyle(fontFamily: 'Inter'),
+            ),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: const Color(0xFF4AA5A6),
+          ),
+        );
+      },
+    );
   }
 }
