@@ -28,8 +28,8 @@ class _PlaceResult {
     );
   }
 
-  _PlaceResult withDistance(double meters) =>
-      _PlaceResult(displayName: displayName, lat: lat, lon: lon, distanceMeters: meters);
+  _PlaceResult withDistance(double meters) => _PlaceResult(
+      displayName: displayName, lat: lat, lon: lon, distanceMeters: meters);
 }
 
 /// Haversine distance in meters between two lat/lon points.
@@ -92,10 +92,17 @@ class _MapSearchResultPageState extends State<MapSearchResultPage> {
       }
       if (permission == LocationPermission.whileInUse ||
           permission == LocationPermission.always) {
+        // Use a short timeout so we don't stall the search if GPS is slow to lock
         final pos = await Geolocator.getCurrentPosition(
-          locationSettings:
-              const LocationSettings(accuracy: LocationAccuracy.high),
-        );
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 3),
+          ),
+        ).catchError((e) async {
+          final lastKnown = await Geolocator.getLastKnownPosition();
+          if (lastKnown != null) return lastKnown;
+          throw e;
+        });
         if (mounted) {
           setState(() => _userLocation = LatLng(pos.latitude, pos.longitude));
         }
@@ -141,8 +148,8 @@ class _MapSearchResultPageState extends State<MapSearchResultPage> {
         // Attach distance and sort nearest first if we have user location
         if (_userLocation != null) {
           results = results.map((r) {
-            final d = _haversine(
-                _userLocation!.latitude, _userLocation!.longitude, r.lat, r.lon);
+            final d = _haversine(_userLocation!.latitude,
+                _userLocation!.longitude, r.lat, r.lon);
             return r.withDistance(d);
           }).toList()
             ..sort((a, b) => a.distanceMeters!.compareTo(b.distanceMeters!));
@@ -406,24 +413,32 @@ class _MapSearchResultPageState extends State<MapSearchResultPage> {
                         child: GestureDetector(
                           onTap: _selected == null
                               ? null
-                              : () {
-                                  Navigator.push(
+                              : () async {
+                                  final result = await Navigator.push(
                                     context,
-                                    MaterialPageRoute(
-                                      builder: (_) => MapDirectionPage(
+                                    PageRouteBuilder(
+                                      pageBuilder: (_, __, ___) =>
+                                          MapDirectionPage(
                                         destinationName:
                                             _selected!.displayName,
                                         destination: LatLng(
                                             _selected!.lat, _selected!.lon),
                                       ),
+                                      transitionDuration: Duration.zero,
+                                      reverseTransitionDuration: Duration.zero,
                                     ),
                                   );
+                                  if (result != null && context.mounted) {
+                                    Navigator.pop(context, result);
+                                  }
                                 },
                           child: Container(
                             width: double.infinity,
                             height: 48,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF4AA5A6),
+                              color: _selected == null
+                                  ? Colors.grey.shade300
+                                  : const Color(0xFF4AA5A6),
                               borderRadius: BorderRadius.circular(30),
                             ),
                             child: const Center(
@@ -461,8 +476,11 @@ class _MapSearchResultPageState extends State<MapSearchResultPage> {
         currentIndex: 1,
         onTap: (index) {
           if (index == 0) {
-            Navigator.pushNamedAndRemoveUntil(
-                context, '/home', (route) => false);
+            Navigator.popUntil(context, (route) => route.isFirst);
+          }
+          if (index == 2) {
+            // Pop back to MapPage carrying result 2 so HomePage opens Profile
+            Navigator.pop(context, 2);
           }
         },
         selectedItemColor: const Color(0xFF4AA5A6),
@@ -508,7 +526,7 @@ class _MapSearchResultPageState extends State<MapSearchResultPage> {
       children: [
         TileLayer(
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.example.findkal',
+          userAgentPackageName: 'com.findkal.app',
           keepBuffer: 5,
         ),
         if (_userLocation != null)

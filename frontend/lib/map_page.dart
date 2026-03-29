@@ -18,7 +18,7 @@ class _MapPageState extends State<MapPage> {
 
   static const _fallback = LatLng(-0.5022, 117.1536);
   LatLng? _userLocation;
-  bool _locating = true;
+  bool _locating = false;
 
   @override
   void initState() {
@@ -37,19 +37,28 @@ class _MapPageState extends State<MapPage> {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
+
+    // Stop the loading indicator so the map immediately renders using fallback location
+    if (mounted) setState(() => _locating = false);
+
     if (permission == LocationPermission.whileInUse ||
         permission == LocationPermission.always) {
       await _moveToCurrentLocation();
     }
-    if (mounted) setState(() => _locating = false);
   }
 
   Future<void> _moveToCurrentLocation() async {
     try {
       final position = await Geolocator.getCurrentPosition(
-        locationSettings:
-            const LocationSettings(accuracy: LocationAccuracy.high),
-      );
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 4),
+        ),
+      ).catchError((e) async {
+        final lastKnown = await Geolocator.getLastKnownPosition();
+        if (lastKnown != null) return lastKnown;
+        throw e;
+      });
       final loc = LatLng(position.latitude, position.longitude);
       if (mounted) {
         setState(() => _userLocation = loc);
@@ -66,8 +75,10 @@ class _MapPageState extends State<MapPage> {
     SearchHistory.add(query);
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => MapSearchResultPage(query: query),
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => MapSearchResultPage(query: query),
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
       ),
     );
   }
@@ -82,181 +93,177 @@ class _MapPageState extends State<MapPage> {
                 child: CircularProgressIndicator(color: Color(0xFF4AA5A6)),
               )
             : Stack(
-          children: [
-            // ── MAP ──────────────────────────────────────────────────────
-            FlutterMap(
-              mapController: _mapController,
-              options: MapOptions(
-                initialCenter: _userLocation ?? _fallback,
-                initialZoom: 15,
-              ),
-              children: [
-                TileLayer(
-                  urlTemplate:
-                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.example.findkal',
-                ),
-                if (_userLocation != null)
-                  MarkerLayer(
-                    markers: [
-                      Marker(
-                        point: _userLocation!,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF4AA5A6),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 3),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.3),
-                                blurRadius: 6,
-                              ),
-                            ],
-                          ),
-                          width: 22,
-                          height: 22,
-                        ),
+                children: [
+                  // ── MAP ──────────────────────────────────────────────────────
+                  FlutterMap(
+                    mapController: _mapController,
+                    options: MapOptions(
+                      initialCenter: _userLocation ?? _fallback,
+                      initialZoom: 15,
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate:
+                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.findkal.app',
                       ),
+                      if (_userLocation != null)
+                        MarkerLayer(
+                          markers: [
+                            Marker(
+                              point: _userLocation!,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF4AA5A6),
+                                  shape: BoxShape.circle,
+                                  border:
+                                      Border.all(color: Colors.white, width: 3),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color:
+                                          Colors.black.withValues(alpha: 0.3),
+                                      blurRadius: 6,
+                                    ),
+                                  ],
+                                ),
+                                width: 22,
+                                height: 22,
+                              ),
+                            ),
+                          ],
+                        ),
                     ],
                   ),
-              ],
-            ),
 
-            // ── SEARCH BAR OVERLAY ────────────────────────────────────────
-            Positioned(
-              top: 12,
-              left: 16,
-              right: 16,
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.maybePop(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(9),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.15),
-                            blurRadius: 6,
+                  // ── SEARCH BAR OVERLAY ────────────────────────────────────────
+                  Positioned(
+                    top: 12,
+                    left: 16,
+                    right: 16,
+                    child: Row(
+                      children: [
+                        GestureDetector(
+                          onTap: () => Navigator.maybePop(context),
+                          child: Container(
+                            padding: const EdgeInsets.all(9),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.15),
+                                  blurRadius: 6,
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.arrow_back_ios_new_rounded,
+                              color: Color(0xFF4AA5A6),
+                              size: 20,
+                            ),
                           ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.arrow_back_ios_new_rounded,
-                        color: Color(0xFF4AA5A6),
-                        size: 20,
-                      ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Container(
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(30),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.15),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                const SizedBox(width: 14),
+                                const Icon(
+                                  Icons.search,
+                                  color: Color(0xFF4AA5A6),
+                                  size: 22,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: TextField(
+                                    controller: _searchController,
+                                    onSubmitted: (_) => _onSearch(),
+                                    decoration: InputDecoration(
+                                      hintText: 'Cari lokasi...',
+                                      hintStyle: TextStyle(
+                                        fontFamily: 'Inter',
+                                        fontSize: 13,
+                                        color: Colors.grey.shade500,
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                      border: InputBorder.none,
+                                      isDense: true,
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                              vertical: 14),
+                                    ),
+                                    style: const TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                                GestureDetector(
+                                  onTap: _onSearch,
+                                  child: Container(
+                                    margin: const EdgeInsets.all(5),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 14, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF4AA5A6),
+                                      borderRadius: BorderRadius.circular(30),
+                                    ),
+                                    child: const Text(
+                                      'Cari',
+                                      style: TextStyle(
+                                        fontFamily: 'Inter',
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Container(
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(30),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.15),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          const SizedBox(width: 14),
-                          const Icon(
-                            Icons.search,
-                            color: Color(0xFF4AA5A6),
-                            size: 22,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: TextField(
-                              controller: _searchController,
-                              onSubmitted: (_) => _onSearch(),
-                              decoration: InputDecoration(
-                                hintText: 'Cari lokasi...',
-                                hintStyle: TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontSize: 13,
-                                  color: Colors.grey.shade500,
-                                  fontStyle: FontStyle.italic,
-                                ),
-                                border: InputBorder.none,
-                                isDense: true,
-                                contentPadding:
-                                    const EdgeInsets.symmetric(vertical: 14),
-                              ),
-                              style: const TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: _onSearch,
-                            child: Container(
-                              margin: const EdgeInsets.all(5),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF4AA5A6),
-                                borderRadius: BorderRadius.circular(30),
-                              ),
-                              child: const Text(
-                                'Cari',
-                                style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+
+                  // ── MY LOCATION FAB ───────────────────────────────────────────
+                  Positioned(
+                    bottom: 20,
+                    right: 16,
+                    child: FloatingActionButton(
+                      onPressed: _moveToCurrentLocation,
+                      backgroundColor: Colors.white,
+                      elevation: 4,
+                      child: const Icon(
+                        Icons.my_location,
+                        color: Color(0xFF4AA5A6),
                       ),
                     ),
                   ),
                 ],
               ),
-            ),
-
-            // ── MY LOCATION FAB ───────────────────────────────────────────
-            Positioned(
-              bottom: 20,
-              right: 16,
-              child: FloatingActionButton(
-                onPressed: _moveToCurrentLocation,
-                backgroundColor: Colors.white,
-                elevation: 4,
-                child: const Icon(
-                  Icons.my_location,
-                  color: Color(0xFF4AA5A6),
-                ),
-              ),
-            ),
-          ],
-        ),
-    ),
+      ),
 
       // ── BOTTOM NAVIGATION BAR ─────────────────────────────────────────
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: 1,
         onTap: (index) {
-          if (index == 0) {
-            Navigator.pushNamedAndRemoveUntil(
-              context,
-              '/home',
-              (route) => false,
-            );
-          } else if (index == 2) {
-            Navigator.pop(context, 2);
-          }
+          if (index == 0) Navigator.pop(context, 0);
+          if (index == 2) Navigator.pop(context, 2);
         },
         selectedItemColor: const Color(0xFF4AA5A6),
         unselectedItemColor: Colors.black,

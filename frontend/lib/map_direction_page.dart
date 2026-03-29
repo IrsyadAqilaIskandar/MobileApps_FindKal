@@ -48,6 +48,9 @@ class _MapDirectionPageState extends State<MapDirectionPage> {
   bool _loading = true;
   String? _error;
 
+  // Transport mode: 'car', 'motorcycle', 'walking'
+  String _selectedMode = 'car';
+
   @override
   void initState() {
     super.initState();
@@ -163,9 +166,15 @@ class _MapDirectionPageState extends State<MapDirectionPage> {
       }
 
       final position = await Geolocator.getCurrentPosition(
-        locationSettings:
-            const LocationSettings(accuracy: LocationAccuracy.high),
-      );
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 4),
+        ),
+      ).catchError((e) async {
+        final lastKnown = await Geolocator.getLastKnownPosition();
+        if (lastKnown != null) return lastKnown;
+        throw e;
+      });
       final origin = LatLng(position.latitude, position.longitude);
       setState(() => _userLocation = origin);
 
@@ -251,6 +260,23 @@ class _MapDirectionPageState extends State<MapDirectionPage> {
       return m == 0 ? '$h jam' : '$h jam $m menit';
     }
     return '$mins menit';
+  }
+
+  /// Estimated duration in seconds for each transport mode.
+  double _durationFor(String mode) {
+    final dist = _distanceMeters ?? 0;
+    final carSecs = _durationSeconds ?? 0;
+    switch (mode) {
+      case 'motorcycle':
+        // Motorcycles average ~40 km/h in urban areas
+        return (dist / (40000 / 3600));
+      case 'walking':
+        // Walking average ~5 km/h
+        return (dist / (5000 / 3600));
+      case 'car':
+      default:
+        return carSecs;
+    }
   }
 
   @override
@@ -430,8 +456,7 @@ class _MapDirectionPageState extends State<MapDirectionPage> {
               left: 16,
               right: 16,
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 14),
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
@@ -443,17 +468,18 @@ class _MapDirectionPageState extends State<MapDirectionPage> {
                     ),
                   ],
                 ),
-                child: Row(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.location_pin,
-                        color: Color(0xFFE53935), size: 28),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
+                    // Destination name + distance
+                    Row(
+                      children: [
+                        const Icon(Icons.location_pin,
+                            color: Color(0xFFE53935), size: 24),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
                             _currentDestinationName,
                             style: const TextStyle(
                               fontFamily: 'Inter',
@@ -463,34 +489,46 @@ class _MapDirectionPageState extends State<MapDirectionPage> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              const Icon(Icons.straighten,
-                                  size: 14, color: Color(0xFF4AA5A6)),
-                              const SizedBox(width: 4),
-                              Text(
-                                _formatDistance(_distanceMeters!),
-                                style: const TextStyle(
-                                    fontFamily: 'Inter',
-                                    fontSize: 13,
-                                    color: Colors.black54),
-                              ),
-                              const SizedBox(width: 16),
-                              const Icon(Icons.access_time,
-                                  size: 14, color: Color(0xFF4AA5A6)),
-                              const SizedBox(width: 4),
-                              Text(
-                                _formatDuration(_durationSeconds!),
-                                style: const TextStyle(
-                                    fontFamily: 'Inter',
-                                    fontSize: 13,
-                                    color: Colors.black54),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 8),
+                        Row(
+                          children: [
+                            const Icon(Icons.straighten,
+                                size: 13, color: Color(0xFF4AA5A6)),
+                            const SizedBox(width: 3),
+                            Text(
+                              _formatDistance(_distanceMeters!),
+                              style: const TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 12,
+                                  color: Colors.black54),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Transport mode selector
+                    Row(
+                      children: [
+                        _modeChip(
+                          mode: 'car',
+                          icon: Icons.directions_car,
+                          label: 'Mobil',
+                        ),
+                        const SizedBox(width: 8),
+                        _modeChip(
+                          mode: 'motorcycle',
+                          icon: Icons.two_wheeler,
+                          label: 'Motor',
+                        ),
+                        const SizedBox(width: 8),
+                        _modeChip(
+                          mode: 'walking',
+                          icon: Icons.directions_walk,
+                          label: 'Jalan',
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -513,6 +551,9 @@ class _MapDirectionPageState extends State<MapDirectionPage> {
               MaterialPageRoute(builder: (_) => const MapPage()),
               (route) => false,
             );
+          }
+          if (index == 2) {
+            Navigator.pop(context, 2);
           }
         },
         selectedItemColor: const Color(0xFF4AA5A6),
@@ -542,6 +583,57 @@ class _MapDirectionPageState extends State<MapDirectionPage> {
     );
   }
 
+  Widget _modeChip({
+    required String mode,
+    required IconData icon,
+    required String label,
+  }) {
+    final selected = _selectedMode == mode;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedMode = mode),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: selected
+                ? const Color(0xFF4AA5A6)
+                : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon,
+                  size: 20,
+                  color: selected ? Colors.white : Colors.black54),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: selected ? Colors.white : Colors.black54,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                _formatDuration(_durationFor(mode)),
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: selected ? Colors.white : Colors.black87,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildMap() {
     if (_error != null && _userLocation == null) {
       // No location at all — show plain grey
@@ -556,7 +648,7 @@ class _MapDirectionPageState extends State<MapDirectionPage> {
       children: [
         TileLayer(
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.example.findkal',
+          userAgentPackageName: 'com.findkal.app',
           // Keep tiles in memory while camera moves
           keepBuffer: 5,
         ),
