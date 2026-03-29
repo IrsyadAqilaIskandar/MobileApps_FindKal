@@ -6,6 +6,8 @@ import 'map_page.dart';
 import 'search_overlay_page.dart';
 import 'buat_unggahan.dart';
 import 'profile.dart';
+import 'models/unggahan.dart';
+import 'unggahan_detail_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -18,15 +20,23 @@ class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   bool _hasUnreadNotification = true;
 
+<<<<<<< HEAD
   // Map preview state
   static const LatLng _defaultCenter = LatLng(-0.5022, 117.1536);
   LatLng _mapCenter = _defaultCenter;
   LatLng? _userLocation;
   final MapController _mapController = MapController();
+=======
+  final MapController _mapController = MapController();
+  static const _fallback = LatLng(-0.5022, 117.1536);
+  LatLng? _userLocation;
+  bool _locating = false;
+>>>>>>> bcbd3e2a7a387b0dc1ab6a2a915c96fac2b5f25c
 
   @override
   void initState() {
     super.initState();
+<<<<<<< HEAD
     _loadUserLocation();
   }
 
@@ -38,10 +48,17 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _loadUserLocation() async {
+=======
+    _requestLocationAndMove();
+  }
+
+  Future<void> _requestLocationAndMove() async {
+>>>>>>> bcbd3e2a7a387b0dc1ab6a2a915c96fac2b5f25c
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
+<<<<<<< HEAD
     if (permission == LocationPermission.whileInUse ||
         permission == LocationPermission.always) {
       try {
@@ -57,6 +74,36 @@ class _HomePageState extends State<HomePage> {
           _mapController.move(_mapCenter, 15);
         }
       } catch (_) {}
+=======
+    
+    if (mounted) setState(() => _locating = false);
+
+    if (permission == LocationPermission.whileInUse ||
+        permission == LocationPermission.always) {
+      await _moveToCurrentLocation();
+    }
+  }
+
+  Future<void> _moveToCurrentLocation() async {
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 4),
+        ),
+      ).catchError((e) async {
+        final lastKnown = await Geolocator.getLastKnownPosition();
+        if (lastKnown != null) return lastKnown;
+        throw e;
+      });
+      final loc = LatLng(position.latitude, position.longitude);
+      if (mounted) {
+        setState(() => _userLocation = loc);
+        _mapController.move(loc, 15);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _locating = false);
+>>>>>>> bcbd3e2a7a387b0dc1ab6a2a915c96fac2b5f25c
     }
   }
 
@@ -222,6 +269,7 @@ class _HomePageState extends State<HomePage> {
                   // Map Preview
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
+<<<<<<< HEAD
                     child: GestureDetector(
                       onTap: () async {
                         final result = await Navigator.push(
@@ -333,6 +381,82 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ),
                       ),
+=======
+                    child: Container(
+                      height: 350,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.grey.shade400,
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: _locating
+                            ? const Center(
+                                child: CircularProgressIndicator(color: Color(0xFF4AA5A6)),
+                              )
+                            : GestureDetector(
+                                onPanDown: (_) => null,
+                                onTap: () => _onItemTapped(1), // Navigates to Map tab
+                                behavior: HitTestBehavior.translucent, // Ensures the gesture takes priority
+                                child: IgnorePointer(
+                                  ignoring: true, // Prevents map from stealing gesture events
+                                  child: FlutterMap(
+                                    mapController: _mapController,
+                                    options: MapOptions(
+                                      initialCenter: _userLocation ?? _fallback,
+                                      initialZoom: 15,
+                                      interactionOptions: const InteractionOptions(
+                                        flags: InteractiveFlag.none, // Make it view-only
+                                      ),
+                                    ),
+                                children: [
+                                  TileLayer(
+                                    urlTemplate:
+                                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                    userAgentPackageName: 'com.findkal.app',
+                                  ),
+                                  if (_userLocation != null)
+                                    MarkerLayer(
+                                      markers: [
+                                        Marker(
+                                          point: _userLocation!,
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF4AA5A6),
+                                              shape: BoxShape.circle,
+                                              border:
+                                                  Border.all(color: Colors.white, width: 3),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color:
+                                                      Colors.black.withOpacity(0.3),
+                                                  blurRadius: 6,
+                                                ),
+                                              ],
+                                            ),
+                                            width: 22,
+                                            height: 22,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                ],
+                              ),
+                             ),
+                            ),
+                          ),
+>>>>>>> bcbd3e2a7a387b0dc1ab6a2a915c96fac2b5f25c
                     ),
                   ),
 
@@ -359,9 +483,9 @@ class _HomePageState extends State<HomePage> {
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.only(left: 16, right: 8),
-                      itemCount: 3, // Placeholder count
+                      itemCount: dummyUnggahans.length,
                       itemBuilder: (context, index) {
-                        return _buildExplorasiCard(index);
+                        return _buildExplorasiCard(dummyUnggahans[index]);
                       },
                     ),
                   ),
@@ -392,66 +516,79 @@ class _HomePageState extends State<HomePage> {
         );
   }
 
-  Widget _buildExplorasiCard(int index) {
-    return Container(
-      width: 180,
-      margin: const EdgeInsets.only(right: 12),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade200,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // User section
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 12,
-                  backgroundColor: Colors.grey.shade400,
-                  child: const Icon(
-                    Icons.person,
-                    size: 16,
-                    color: Colors.white,
+  Widget _buildExplorasiCard(Unggahan unggahan) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => UnggahanDetailPage(unggahan: unggahan),
+          ),
+        );
+      },
+      child: Container(
+        width: 180,
+        margin: const EdgeInsets.only(right: 12),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade200,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // User section
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 12,
+                    backgroundColor: Colors.grey.shade400,
+                    backgroundImage: AssetImage(unggahan.imagePaths.first),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      unggahan.usernameHandle.replaceAll('@', ''),
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Image Placeholder
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(12),
+                    image: DecorationImage(
+                      image: AssetImage(unggahan.imagePaths.first),
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  "user${1000 + index}",
-                  style: const TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            // Image Placeholder
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade400,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Center(
-                  child: Icon(Icons.image, color: Colors.white, size: 40),
-                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            // Title
-            Text(
-              "Lokasi Menarik ${index + 1}",
-              style: const TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
+              const SizedBox(height: 12),
+              // Title
+              Text(
+                unggahan.placeName,
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
