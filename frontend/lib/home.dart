@@ -274,42 +274,40 @@ class _HomePageState extends State<HomePage> {
                                         flags: InteractiveFlag.none,
                                       ),
                                     ),
-                                children: [
-                                  TileLayer(
-                                    urlTemplate:
-                                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                    userAgentPackageName: 'com.findkal.app',
-                                  ),
-                                  if (_userLocation != null)
-                                    MarkerLayer(
-                                      markers: [
-                                        Marker(
-                                          point: _userLocation!,
-                                          child: Container(
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFF4AA5A6),
-                                              shape: BoxShape.circle,
-                                              border:
-                                                  Border.all(color: Colors.white, width: 3),
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color:
-                                                      Colors.black.withValues(alpha: 0.3),
-                                                  blurRadius: 6,
+                                    children: [
+                                      TileLayer(
+                                        urlTemplate:
+                                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                        userAgentPackageName: 'com.findkal.app',
+                                      ),
+                                      if (_userLocation != null)
+                                        MarkerLayer(
+                                          markers: [
+                                            Marker(
+                                              point: _userLocation!,
+                                              child: Container(
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFF4AA5A6),
+                                                  shape: BoxShape.circle,
+                                                  border: Border.all(color: Colors.white, width: 3),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: Colors.black.withValues(alpha: 0.3),
+                                                      blurRadius: 6,
+                                                    ),
+                                                  ],
                                                 ),
-                                              ],
+                                                width: 22,
+                                                height: 22,
+                                              ),
                                             ),
-                                            width: 22,
-                                            height: 22,
-                                          ),
+                                          ],
                                         ),
-                                      ],
-                                    ),
-                                ],
+                                    ],
+                                  ),
+                                ),
                               ),
-                             ),
-                            ),
-                          ),
+                      ),
                     ),
                   ),
 
