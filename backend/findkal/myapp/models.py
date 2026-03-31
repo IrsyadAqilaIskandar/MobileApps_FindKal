@@ -44,6 +44,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     kecamatan = models.CharField(max_length=50, blank=True)
     kelurahan = models.CharField(max_length=50, blank=True)
 
+    bio = models.TextField(blank=True, default='')
+    profile_photo = models.ImageField(upload_to='profile_photos/', blank=True, null=True)
+
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     date_joined = models.DateTimeField(auto_now_add=True)

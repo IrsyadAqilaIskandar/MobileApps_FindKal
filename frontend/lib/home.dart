@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'map_page.dart';
+import 'search_overlay_page.dart';
 import 'buat_unggahan.dart';
 import 'profile.dart';
 import 'models/unggahan.dart';
@@ -30,12 +31,19 @@ class _HomePageState extends State<HomePage> {
     _requestLocationAndMove();
   }
 
+  void _openSearch() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SearchOverlayPage()),
+    );
+  }
+
   Future<void> _requestLocationAndMove() async {
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
-    
+
     if (mounted) setState(() => _locating = false);
 
     if (permission == LocationPermission.whileInUse ||
@@ -94,8 +102,8 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: _selectedIndex == 2 
-            ? const ProfilePage() 
+        child: _selectedIndex == 2
+            ? const ProfilePage()
             : _buildHomeContent(),
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -141,36 +149,39 @@ class _HomePageState extends State<HomePage> {
                     child: Row(
                       children: [
                         Expanded(
-                          child: Container(
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(30),
-                              border: Border.all(
-                                color: const Color(0xFF4AA5A6),
-                                width: 1.5,
+                          child: GestureDetector(
+                            onTap: _openSearch,
+                            child: Container(
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(30),
+                                border: Border.all(
+                                  color: const Color(0xFF4AA5A6),
+                                  width: 1.5,
+                                ),
                               ),
-                            ),
-                            child: Row(
-                              children: [
-                                const SizedBox(width: 16),
-                                const Icon(
-                                  Icons.search,
-                                  color: Color(0xFF4AA5A6),
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  "Mau ke mana hari ini?",
-                                  style: TextStyle(
-                                    fontFamily: 'Inter',
-                                    fontSize: 14,
-                                    color: const Color(
-                                      0xFF4AA5A6,
-                                    ).withOpacity(0.8),
-                                    fontStyle: FontStyle.italic,
+                              child: Row(
+                                children: [
+                                  const SizedBox(width: 16),
+                                  const Icon(
+                                    Icons.search,
+                                    color: Color(0xFF4AA5A6),
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    "Mau ke mana hari ini?",
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 14,
+                                      color: const Color(
+                                        0xFF4AA5A6,
+                                      ).withValues(alpha: 0.8),
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -222,7 +233,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Map Placeholder
+                  // Map Preview
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: Container(
@@ -236,7 +247,7 @@ class _HomePageState extends State<HomePage> {
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
+                            color: Colors.black.withValues(alpha: 0.1),
                             blurRadius: 10,
                             offset: const Offset(0, 5),
                           ),
@@ -249,56 +260,54 @@ class _HomePageState extends State<HomePage> {
                                 child: CircularProgressIndicator(color: Color(0xFF4AA5A6)),
                               )
                             : GestureDetector(
-                                onPanDown: (_) => null,
-                                onTap: () => _onItemTapped(1), // Navigates to Map tab
-                                behavior: HitTestBehavior.translucent, // Ensures the gesture takes priority
+                                onPanDown: (_) {},
+                                onTap: () => _onItemTapped(1),
+                                behavior: HitTestBehavior.translucent,
                                 child: IgnorePointer(
-                                  ignoring: true, // Prevents map from stealing gesture events
+                                  ignoring: true,
                                   child: FlutterMap(
                                     mapController: _mapController,
                                     options: MapOptions(
                                       initialCenter: _userLocation ?? _fallback,
                                       initialZoom: 15,
                                       interactionOptions: const InteractionOptions(
-                                        flags: InteractiveFlag.none, // Make it view-only
+                                        flags: InteractiveFlag.none,
                                       ),
                                     ),
-                                children: [
-                                  TileLayer(
-                                    urlTemplate:
-                                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                    userAgentPackageName: 'com.findkal.app',
-                                  ),
-                                  if (_userLocation != null)
-                                    MarkerLayer(
-                                      markers: [
-                                        Marker(
-                                          point: _userLocation!,
-                                          child: Container(
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFF4AA5A6),
-                                              shape: BoxShape.circle,
-                                              border:
-                                                  Border.all(color: Colors.white, width: 3),
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color:
-                                                      Colors.black.withOpacity(0.3),
-                                                  blurRadius: 6,
+                                    children: [
+                                      TileLayer(
+                                        urlTemplate:
+                                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                        userAgentPackageName: 'com.findkal.app',
+                                      ),
+                                      if (_userLocation != null)
+                                        MarkerLayer(
+                                          markers: [
+                                            Marker(
+                                              point: _userLocation!,
+                                              child: Container(
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFF4AA5A6),
+                                                  shape: BoxShape.circle,
+                                                  border: Border.all(color: Colors.white, width: 3),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: Colors.black.withValues(alpha: 0.3),
+                                                      blurRadius: 6,
+                                                    ),
+                                                  ],
                                                 ),
-                                              ],
+                                                width: 22,
+                                                height: 22,
+                                              ),
                                             ),
-                                            width: 22,
-                                            height: 22,
-                                          ),
+                                          ],
                                         ),
-                                      ],
-                                    ),
-                                ],
+                                    ],
+                                  ),
+                                ),
                               ),
-                             ),
-                            ),
-                          ),
+                      ),
                     ),
                   ),
 
@@ -453,7 +462,7 @@ class _HomePageState extends State<HomePage> {
           border: Border.all(color: const Color(0xFF4AA5A6), width: 1.5),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 8,
               offset: const Offset(0, 4),
             ),

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'services/auth_state.dart';
+import 'services/api_service.dart';
 import 'models/edit_profile_model.dart';
 
 class EditProfilePage extends StatefulWidget {
@@ -18,6 +19,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   XFile? _newPhoto;
   bool _photoDeleted = false;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -36,7 +38,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   // ── Photo helpers ──────────────────────────────────────────────────────────
 
-  String? get _existingPhotoUrl => AuthState.currentUser?['profile_photo'] as String?;
+  String? get _existingPhotoUrl =>
+      AuthState.currentUser?['profile_photo'] as String?;
 
   bool get _hasAnyPhoto =>
       _newPhoto != null || (!_photoDeleted && _existingPhotoUrl != null);
@@ -61,10 +64,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
             ),
             ListTile(
-              leading: const Icon(Icons.photo_library_outlined,
-                  color: Color(0xFF4AA5A6)),
-              title: const Text('Pilih dari galeri',
-                  style: TextStyle(fontFamily: 'Inter')),
+              leading: const Icon(
+                Icons.photo_library_outlined,
+                color: Color(0xFF4AA5A6),
+              ),
+              title: const Text(
+                'Pilih dari galeri',
+                style: TextStyle(fontFamily: 'Inter'),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 _pickFromGallery();
@@ -72,11 +79,17 @@ class _EditProfilePageState extends State<EditProfilePage> {
             ),
             if (_hasAnyPhoto)
               ListTile(
-                leading:
-                    const Icon(Icons.delete_outline, color: Colors.redAccent),
-                title: const Text('Hapus foto profil',
-                    style: TextStyle(
-                        fontFamily: 'Inter', color: Colors.redAccent)),
+                leading: const Icon(
+                  Icons.delete_outline,
+                  color: Colors.redAccent,
+                ),
+                title: const Text(
+                  'Hapus foto profil',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    color: Colors.redAccent,
+                  ),
+                ),
                 onTap: () {
                   Navigator.pop(context);
                   setState(() {
@@ -108,8 +121,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Gagal membuka galeri: $e',
-              style: const TextStyle(fontFamily: 'Inter')),
+          content: Text(
+            'Gagal membuka galeri: $e',
+            style: const TextStyle(fontFamily: 'Inter'),
+          ),
         ),
       );
     }
@@ -118,27 +133,39 @@ class _EditProfilePageState extends State<EditProfilePage> {
   // ── Save ──────────────────────────────────────────────────────────────────
 
   EditProfileModel get _currentModel => EditProfileModel(
-        name: _nameController.text,
-        bio: _bioController.text.trim().isEmpty ? null : _bioController.text,
-        existingPhotoUrl: _existingPhotoUrl,
-        newPhoto: _newPhoto,
-        photoDeleted: _photoDeleted,
-      );
+    name: _nameController.text,
+    bio: _bioController.text.trim().isEmpty ? null : _bioController.text,
+    existingPhotoUrl: _existingPhotoUrl,
+    newPhoto: _newPhoto,
+    photoDeleted: _photoDeleted,
+  );
 
-  void _saveProfile() {
+  Future<void> _saveProfile() async {
     final model = _currentModel;
-    if (AuthState.currentUser != null) {
-      AuthState.currentUser!['name'] = model.name.trim();
-      AuthState.currentUser!['bio'] = model.bio;
-      if (model.photoDeleted) {
-        AuthState.currentUser!['profile_photo'] = null;
-      } else if (model.newPhoto != null) {
-        // Store the local path temporarily; replace with upload URL in production
-        AuthState.currentUser!['profile_photo'] = model.newPhoto!.path;
-      }
+    final userId = AuthState.currentUser?['id'] as int?;
+    if (userId == null) return;
+    setState(() => _saving = true);
+    try {
+      final updated = await ApiService.updateProfile(
+        userId: userId,
+        name: model.name,
+        bio: model.bio ?? '',
+        photoPath: model.newPhoto?.path,
+        deletePhoto: model.photoDeleted,
+      );
+      AuthState.currentUser = {...AuthState.currentUser!, ...updated};
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message, style: const TextStyle(fontFamily: 'Inter')),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
-    debugPrint(model.toString());
-    Navigator.pop(context, true);
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
@@ -165,8 +192,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         centerTitle: true,
       ),
       body: SingleChildScrollView(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -225,7 +251,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   borderSide: BorderSide.none,
                 ),
                 contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 14),
+                  horizontal: 16,
+                  vertical: 14,
+                ),
               ),
               style: const TextStyle(fontFamily: 'Inter'),
             ),
@@ -247,21 +275,23 @@ class _EditProfilePageState extends State<EditProfilePage> {
               decoration: InputDecoration(
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
-                  borderSide:
-                      BorderSide(color: Colors.grey.shade400, width: 1),
+                  borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
-                  borderSide:
-                      BorderSide(color: Colors.grey.shade400, width: 1),
+                  borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
                   borderSide: const BorderSide(
-                      color: Color(0xFF4AA5A6), width: 1.5),
+                    color: Color(0xFF4AA5A6),
+                    width: 1.5,
+                  ),
                 ),
                 contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 14),
+                  horizontal: 16,
+                  vertical: 14,
+                ),
               ),
               style: const TextStyle(fontFamily: 'Inter'),
             ),
@@ -272,7 +302,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               width: double.infinity,
               height: 48,
               child: ElevatedButton(
-                onPressed: _saveProfile,
+                onPressed: _saving ? null : _saveProfile,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF9ACAD0),
                   shape: RoundedRectangleBorder(
@@ -280,15 +310,24 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   ),
                   elevation: 0,
                 ),
-                child: const Text(
-                  'Simpan',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
+                child: _saving
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'Simpan',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
               ),
             ),
           ],

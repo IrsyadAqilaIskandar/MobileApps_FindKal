@@ -408,7 +408,6 @@ class _MapSearchResultPageState extends State<MapSearchResultPage> {
                       ),
 
                       // Arahkan button
-                      // Your version: PageRouteBuilder zero-transition + await result propagation
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
                         child: GestureDetector(
@@ -473,7 +472,6 @@ class _MapSearchResultPageState extends State<MapSearchResultPage> {
       ),
 
       // ── BOTTOM NAVIGATION BAR ─────────────────────────────────────────
-      // Your version: popUntil(isFirst) for home, pop(2) for profile
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: 1,
         onTap: (index) {

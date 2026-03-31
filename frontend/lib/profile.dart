@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'services/auth_state.dart';
 import 'edit_profile.dart';
@@ -28,15 +29,25 @@ class _ProfilePageState extends State<ProfilePage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               IconButton(
-                icon: const Icon(Icons.bookmark_border, size: 30, color: Colors.black),
+                icon: const Icon(
+                  Icons.bookmark_border,
+                  size: 30,
+                  color: Colors.black,
+                ),
                 onPressed: () {},
               ),
               IconButton(
-                icon: const Icon(Icons.settings_outlined, size: 30, color: Colors.black),
+                icon: const Icon(
+                  Icons.settings_outlined,
+                  size: 30,
+                  color: Colors.black,
+                ),
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const SettingsPage()),
+                    MaterialPageRoute(
+                      builder: (context) => const SettingsPage(),
+                    ),
                   );
                 },
               ),
@@ -48,8 +59,15 @@ class _ProfilePageState extends State<ProfilePage> {
           CircleAvatar(
             radius: 60,
             backgroundColor: const Color(0xFF4AA5A6),
-            backgroundImage: user['profile_photo'] != null ? NetworkImage(user['profile_photo']) : null,
-            child: user['profile_photo'] == null ? const Icon(Icons.person, size: 60, color: Colors.white) : null,
+            backgroundImage: user['profile_photo'] != null
+                ? ((user['profile_photo'] as String).startsWith('http')
+                    ? NetworkImage(user['profile_photo'] as String)
+                    : FileImage(File(user['profile_photo'] as String))
+                        as ImageProvider)
+                : null,
+            child: user['profile_photo'] == null
+                ? const Icon(Icons.person, size: 60, color: Colors.white)
+                : null,
           ),
           const SizedBox(height: 16),
 
@@ -101,7 +119,9 @@ class _ProfilePageState extends State<ProfilePage> {
               onPressed: () async {
                 final result = await Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const EditProfilePage()),
+                  MaterialPageRoute(
+                    builder: (context) => const EditProfilePage(),
+                  ),
                 );
                 if (result == true) {
                   setState(() {}); // Refresh UI with new data

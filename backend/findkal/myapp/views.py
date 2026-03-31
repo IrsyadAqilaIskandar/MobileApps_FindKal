@@ -419,6 +419,52 @@ class PasswordResetConfirmView(APIView):
             status=status.HTTP_200_OK,
         )
 
+# ---------------------------------------------------------------------------
+# Update profile
+# PATCH /api/profile/update/<user_id>/
+# Multipart form: name, bio, profile_photo (file), delete_photo (true/false)
+# ---------------------------------------------------------------------------
+class UpdateProfileView(APIView):
+    def patch(self, request, user_id):
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({"error": "User tidak ditemukan."}, status=status.HTTP_404_NOT_FOUND)
+
+        name = request.data.get('name')
+        bio = request.data.get('bio')
+        photo = request.FILES.get('profile_photo')
+        delete_photo = request.data.get('delete_photo', '').lower() == 'true'
+
+        if name is not None:
+            user.name = name.strip()
+        if bio is not None:
+            user.bio = bio.strip()
+        if delete_photo:
+            if user.profile_photo:
+                user.profile_photo.delete(save=False)
+            user.profile_photo = None
+        elif photo is not None:
+            if user.profile_photo:
+                user.profile_photo.delete(save=False)
+            user.profile_photo = photo
+
+        user.save()
+
+        photo_url = request.build_absolute_uri(user.profile_photo.url) if user.profile_photo else None
+        return Response({
+            "message": "Profil berhasil diperbarui.",
+            "user": {
+                "id": user.id,
+                "name": user.name,
+                "username": user.username,
+                "email": user.email,
+                "bio": user.bio,
+                "profile_photo": photo_url,
+            }
+        }, status=status.HTTP_200_OK)
+
+
 class LoginView(APIView):
     def post(self, request):
         identifier = request.data.get("identifier", "").strip()
@@ -444,13 +490,16 @@ class LoginView(APIView):
             if user.role != "user":
                 return Response({"error": "Akun tidak memiliki akses yang sesuai."}, status=status.HTTP_403_FORBIDDEN)
             if user.check_password(password):
+                photo_url = request.build_absolute_uri(user.profile_photo.url) if user.profile_photo else None
                 return Response({
                     "message": "Berhasil masuk",
                     "user": {
                         "id": user.id,
                         "email": user.email,
                         "username": user.username,
-                        "name": user.name
+                        "name": user.name,
+                        "bio": user.bio,
+                        "profile_photo": photo_url,
                     }
                 }, status=status.HTTP_200_OK)
             else:

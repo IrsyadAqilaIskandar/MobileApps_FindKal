@@ -204,6 +204,43 @@ class ApiService {
     }
   }
 
+  /// Update profile name, bio, and/or photo for [userId].
+  static Future<Map<String, dynamic>> updateProfile({
+    required int userId,
+    required String name,
+    String? bio,
+    String? photoPath,
+    bool deletePhoto = false,
+  }) async {
+    try {
+      final uri = Uri.parse('$_baseUrl/profile/update/$userId/');
+      final request = http.MultipartRequest('PATCH', uri);
+
+      request.fields['name'] = name;
+      if (bio != null) request.fields['bio'] = bio;
+      if (deletePhoto) request.fields['delete_photo'] = 'true';
+      if (photoPath != null && !deletePhoto) {
+        request.files.add(
+          await http.MultipartFile.fromPath('profile_photo', photoPath),
+        );
+      }
+
+      final streamed = await request.send().timeout(const Duration(seconds: 30));
+      final response = await http.Response.fromStream(streamed);
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        return body['user'] as Map<String, dynamic>;
+      }
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      throw ApiException(body['error'] ?? 'Gagal memperbarui profil.');
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException('Tidak dapat terhubung ke server: $e');
+    }
+  }
+
   /// Login user using username/email and password
   static Future<Map<String, dynamic>> login(String identifier, String password) async {
     try {

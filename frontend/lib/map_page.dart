@@ -37,7 +37,7 @@ class _MapPageState extends State<MapPage> {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
-    
+
     // Stop the loading indicator so the map immediately renders using fallback location
     if (mounted) setState(() => _locating = false);
 
@@ -69,9 +69,6 @@ class _MapPageState extends State<MapPage> {
     }
   }
 
-  // Your version: uses PageRouteBuilder with zero transition duration
-  // Friend's version: uses SearchHistory.add() before navigating
-  // Merged: both behaviours combined
   void _onSearch() {
     final query = _searchController.text.trim();
     if (query.isEmpty) return;
