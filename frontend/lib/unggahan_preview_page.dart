@@ -2,8 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'services/auth_state.dart';
+import 'services/api_service.dart';
 
-class UnggahanPreviewPage extends StatelessWidget {
+class UnggahanPreviewPage extends StatefulWidget {
   final List<XFile> images;
   final String locationName;
   final int rating;
@@ -20,6 +21,42 @@ class UnggahanPreviewPage extends StatelessWidget {
     required this.review,
     required this.budget,
   });
+
+  @override
+  State<UnggahanPreviewPage> createState() => _UnggahanPreviewPageState();
+}
+
+class _UnggahanPreviewPageState extends State<UnggahanPreviewPage> {
+  bool _isUploading = false;
+
+  Future<void> _upload() async {
+    setState(() => _isUploading = true);
+    try {
+      final userId = AuthState.currentUser?['id'] as int?;
+      if (userId == null) throw const ApiException('User tidak ditemukan.');
+
+      await ApiService.uploadUnggahan(
+        userId: userId,
+        namaTempat: widget.locationName,
+        alamat: widget.address,
+        ulasan: widget.review,
+        rating: widget.rating,
+        budget: widget.budget,
+        imagePaths: widget.images.map((x) => x.path).toList(),
+      );
+
+      if (!mounted) return;
+      Navigator.pop(context);
+      Navigator.pop(context);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message, style: const TextStyle(fontFamily: 'Inter'))),
+      );
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +111,7 @@ class UnggahanPreviewPage extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    locationName,
+                    widget.locationName,
                     style: const TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 20,
@@ -87,7 +124,7 @@ class UnggahanPreviewPage extends StatelessWidget {
                   children: List.generate(5, (index) {
                     return Icon(
                       Icons.star,
-                      color: index < rating ? Colors.amber : Colors.grey.shade300,
+                      color: index < widget.rating ? Colors.amber : Colors.grey.shade300,
                       size: 20,
                     );
                   }),
@@ -99,19 +136,19 @@ class UnggahanPreviewPage extends StatelessWidget {
             // Address
             const Text("Alamat", style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF4AA5A6))),
             const SizedBox(height: 4),
-            Text(address, style: const TextStyle(fontFamily: 'Inter', fontSize: 14)),
+            Text(widget.address, style: const TextStyle(fontFamily: 'Inter', fontSize: 14)),
             const SizedBox(height: 16),
 
             // Review
             const Text("Ulasan", style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF4AA5A6))),
             const SizedBox(height: 4),
-            Text(review, style: const TextStyle(fontFamily: 'Inter', fontSize: 14)),
+            Text(widget.review, style: const TextStyle(fontFamily: 'Inter', fontSize: 14)),
             const SizedBox(height: 16),
 
             // Budget
             const Text("Budget per orang", style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF4AA5A6))),
             const SizedBox(height: 4),
-            Text(budget, style: const TextStyle(fontFamily: 'Inter', fontSize: 14)),
+            Text(widget.budget, style: const TextStyle(fontFamily: 'Inter', fontSize: 14)),
             const SizedBox(height: 40),
           ],
         ),
@@ -123,20 +160,19 @@ class UnggahanPreviewPage extends StatelessWidget {
           width: double.infinity,
           height: 48,
           child: ElevatedButton(
-            onPressed: () {
-              // Add actual upload logic here, then return to home
-              Navigator.pop(context);
-              Navigator.pop(context); 
-            },
+            onPressed: _isUploading ? null : _upload,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF9ACAD0),
+              disabledBackgroundColor: Colors.grey.shade300,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
               elevation: 0,
             ),
-            child: const Text(
-              "Unggah",
-              style: TextStyle(fontFamily: 'Inter', fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-            ),
+            child: _isUploading
+                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                : const Text(
+                    "Unggah",
+                    style: TextStyle(fontFamily: 'Inter', fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
           ),
         ),
       ),
@@ -144,9 +180,9 @@ class UnggahanPreviewPage extends StatelessWidget {
   }
 
   Widget _buildImageCollage() {
-    if (images.isEmpty) return const SizedBox();
+    if (widget.images.isEmpty) return const SizedBox();
 
-    final files = images.map((x) => File(x.path)).toList();
+    final files = widget.images.map((x) => File(x.path)).toList();
 
     if (files.length == 1) {
       return ClipRRect(

@@ -241,6 +241,46 @@ class ApiService {
     }
   }
 
+  /// Upload a new unggahan with images
+  static Future<Map<String, dynamic>> uploadUnggahan({
+    required int userId,
+    required String namaTempat,
+    required String alamat,
+    required String ulasan,
+    required int rating,
+    required String budget,
+    required List<String> imagePaths,
+  }) async {
+    try {
+      final uri = Uri.parse('$_baseUrl/unggahan/');
+      final request = http.MultipartRequest('POST', uri);
+
+      request.fields['user_id'] = userId.toString();
+      request.fields['nama_tempat'] = namaTempat;
+      request.fields['alamat'] = alamat;
+      request.fields['ulasan'] = ulasan;
+      request.fields['rating'] = rating.toString();
+      request.fields['budget'] = budget;
+
+      for (final path in imagePaths) {
+        request.files.add(await http.MultipartFile.fromPath('image', path));
+      }
+
+      final streamed = await request.send().timeout(const Duration(seconds: 30));
+      final response = await http.Response.fromStream(streamed);
+
+      if (response.statusCode == 201) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      throw ApiException(body['error'] ?? 'Gagal mengunggah.');
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException('Tidak dapat terhubung ke server: $e');
+    }
+  }
+
   /// Fetch all unggahan (newest first)
   static Future<List<Map<String, dynamic>>> fetchUnggahans() async {
     try {
