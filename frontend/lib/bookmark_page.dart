@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'models/unggahan.dart';
 import 'services/api_service.dart';
 import 'services/auth_state.dart';
+import 'search_overlay_page.dart';
+import 'place_detail_page.dart';
 
 // ── Main Page ────────────────────────────────────────────────────────────────
 class BookmarkPage extends StatefulWidget {
@@ -396,10 +398,9 @@ class _BookmarkPageState extends State<BookmarkPage> {
 
       // ── BOTTOM DELETE BAR (edit mode) ──────────────────────────────
       bottomSheet: _isEditMode
-          ? SafeArea(
-              child: GestureDetector(
-                onTap: _selectedIds.isEmpty ? null : _showDeleteDialog,
-                child: Container(
+          ? GestureDetector(
+              onTap: _selectedIds.isEmpty ? null : _showDeleteDialog,
+              child: Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -413,7 +414,10 @@ class _BookmarkPageState extends State<BookmarkPage> {
                       ),
                     ),
                   ),
-                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  padding: EdgeInsets.only(
+                    top: 10,
+                    bottom: 10 + MediaQuery.of(context).padding.bottom,
+                  ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -433,7 +437,6 @@ class _BookmarkPageState extends State<BookmarkPage> {
                       ),
                     ],
                   ),
-                ),
               ),
             )
           : null,
@@ -445,7 +448,24 @@ class _BookmarkPageState extends State<BookmarkPage> {
     final firstImage = item.imagePaths.isNotEmpty ? item.imagePaths.first : null;
 
     return GestureDetector(
-      onTap: _isEditMode ? () => _toggleSelect(item.id!) : null,
+      onTap: _isEditMode
+          ? () => _toggleSelect(item.id!)
+          : () {
+              final place = PlaceSummary(
+                placeName: item.placeName,
+                imagePath: item.imagePaths.isNotEmpty ? item.imagePaths.first : '',
+                postCount: 1,
+                averageRating: item.rating.toDouble(),
+                sampleUnggahan: item,
+                unggahans: [item],
+              );
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => PlaceDetailPage(place: place),
+                ),
+              );
+            },
       child: Container(
         height: 160,
         margin: const EdgeInsets.only(bottom: 12),
