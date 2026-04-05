@@ -34,7 +34,8 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: Padding(
+      body: SafeArea(
+        child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -113,6 +114,7 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
             ),
             const SizedBox(height: 32),
           ],
+        ),
         ),
       ),
     );

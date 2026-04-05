@@ -100,7 +100,8 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
           ),
         ),
       ),
-      body: Padding(
+      body: SafeArea(
+        child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -187,6 +188,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
               ),
             ),
           ],
+        ),
         ),
       ),
     );

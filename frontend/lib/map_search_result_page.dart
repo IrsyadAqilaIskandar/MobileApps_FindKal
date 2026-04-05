@@ -85,29 +85,13 @@ class _MapSearchResultPageState extends State<MapSearchResultPage> {
 
   /// Get user location first, then search so results can be sorted by distance.
   Future<void> _initLocationThenSearch(String query) async {
-    try {
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.whileInUse ||
-          permission == LocationPermission.always) {
-        // Use a short timeout so we don't stall the search if GPS is slow to lock
-        final pos = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            timeLimit: Duration(seconds: 3),
-          ),
-        ).catchError((e) async {
-          final lastKnown = await Geolocator.getLastKnownPosition();
-          if (lastKnown != null) return lastKnown;
-          throw e;
-        });
-        if (mounted) {
-          setState(() => _userLocation = LatLng(pos.latitude, pos.longitude));
-        }
-      }
-    } catch (_) {}
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (mounted) {
+      setState(() => _userLocation = const LatLng(-6.302640076739822, 106.63938340127805));
+    }
     await _search(query);
   }
 

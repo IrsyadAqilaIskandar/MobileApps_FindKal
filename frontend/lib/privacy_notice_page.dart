@@ -36,7 +36,8 @@ class PrivacyNoticePage extends StatelessWidget {
           ),
         ),
       ),
-      body: const SingleChildScrollView(
+      body: SafeArea(
+        child: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(20, 24, 20, 40),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -83,6 +84,7 @@ class PrivacyNoticePage extends StatelessWidget {
                   'Kami berhak mengubah kebijakan privasi ini sewaktu-waktu. Perubahan akan diberitahukan melalui aplikasi. Dengan terus menggunakan aplikasi setelah perubahan berlaku, pengguna dianggap menyetujui kebijakan yang diperbarui.',
             ),
           ],
+        ),
         ),
       ),
     );

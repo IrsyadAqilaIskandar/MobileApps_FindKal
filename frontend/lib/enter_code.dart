@@ -170,7 +170,8 @@ class _EnterCodePageState extends State<EnterCodePage> {
           ),
         ),
       ),
-      body: Padding(
+      body: SafeArea(
+        child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -311,6 +312,7 @@ class _EnterCodePageState extends State<EnterCodePage> {
               ),
             ),
           ],
+        ),
         ),
       ),
     );

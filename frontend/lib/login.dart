@@ -17,7 +17,9 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Column(
+      body: SafeArea(
+        child: SingleChildScrollView(
+        child: Column(
         children: [
           // Top Curved Header Section
           Stack(
@@ -227,7 +229,7 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
 
-          const Spacer(),
+          const SizedBox(height: 40),
 
           // Bottom Link
           Center(
@@ -253,6 +255,8 @@ class _LoginPageState extends State<LoginPage> {
           ),
           const SizedBox(height: 50),
         ],
+        ),
+        ),
       ),
     );
   }

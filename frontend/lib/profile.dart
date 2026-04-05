@@ -36,7 +36,8 @@ class _ProfilePageState extends State<ProfilePage> {
     final username = user['username'] ?? "username";
     final bio = user['bio'] ?? "Belum ada bio";
 
-    return SingleChildScrollView(
+    return SafeArea(
+      child: SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -320,6 +321,7 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           const SizedBox(height: 40),
         ],
+      ),
       ),
     );
   }

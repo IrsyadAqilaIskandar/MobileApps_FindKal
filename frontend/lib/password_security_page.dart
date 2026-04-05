@@ -188,7 +188,8 @@ class _PasswordSecurityPageState extends State<PasswordSecurityPage> {
           ),
         ),
       ),
-      body: Column(
+      body: SafeArea(
+        child: Column(
         children: [
           // ── ROW EMAIL ──────────────────────────────────────────────
           _buildRow(
@@ -248,6 +249,7 @@ class _PasswordSecurityPageState extends State<PasswordSecurityPage> {
             ),
           ),
         ],
+        ),
       ),
     );
   }

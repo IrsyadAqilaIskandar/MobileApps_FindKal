@@ -2,12 +2,14 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 
-// Auto-selects the correct base URL depending on the platform:
-// - Web (browser): localhost resolves to the host machine
-// - Android emulator: 10.0.2.2 is the host machine alias
-// - Physical device: change to your machine's LAN IP (e.g. 192.168.1.x)
-String get _baseUrl =>
-    kIsWeb ? 'http://localhost:8000/api' : 'http://10.0.2.2:8000/api';
+// Toggle this when switching between emulator and physical device
+const bool _usePhysicalDevice = true;
+
+String get _baseUrl {
+  if (kIsWeb) return 'http://localhost:8000/api';
+  if (_usePhysicalDevice) return 'http://192.168.18.15:8000/api';
+  return 'http://10.0.2.2:8000/api'; // Android emulator
+}
 
 class ApiException implements Exception {
   final String message;
@@ -293,6 +295,64 @@ class ApiService {
         return list.cast<Map<String, dynamic>>();
       }
       throw ApiException('Gagal memuat unggahan.');
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException('Tidak dapat terhubung ke server: $e');
+    }
+  }
+
+  /// Fetch bookmarks for a user (returns list of unggahan maps)
+  static Future<List<Map<String, dynamic>>> fetchBookmarks(int userId) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$_baseUrl/bookmarks/?user_id=$userId'))
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) {
+        final list = jsonDecode(response.body) as List;
+        return list.cast<Map<String, dynamic>>();
+      }
+      throw ApiException('Gagal memuat markah.');
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException('Tidak dapat terhubung ke server: $e');
+    }
+  }
+
+  /// Add a bookmark
+  static Future<void> addBookmark(int userId, int unggahanId) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/bookmarks/'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'user_id': userId, 'unggahan_id': unggahanId}),
+          )
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        throw ApiException(body['error'] ?? 'Gagal menyimpan markah.');
+      }
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException('Tidak dapat terhubung ke server: $e');
+    }
+  }
+
+  /// Remove a bookmark
+  static Future<void> removeBookmark(int userId, int unggahanId) async {
+    try {
+      final request = http.Request(
+        'DELETE',
+        Uri.parse('$_baseUrl/bookmarks/$unggahanId/?user_id=$userId'),
+      );
+      request.headers['Content-Type'] = 'application/json';
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 15));
+      if (streamedResponse.statusCode != 200) {
+        throw ApiException('Gagal menghapus markah.');
+      }
     } on ApiException {
       rethrow;
     } catch (e) {

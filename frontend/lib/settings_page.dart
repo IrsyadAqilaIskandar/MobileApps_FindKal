@@ -91,7 +91,8 @@ class SettingsPage extends StatelessWidget {
           ),
         ),
       ),
-      body: ListView(
+      body: SafeArea(
+        child: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
         children: [
           // ── AKUN & KEAMANAN ─────────────────────────────────────────
@@ -161,6 +162,7 @@ class SettingsPage extends StatelessWidget {
             onTap: () => _showLogoutDialog(context),
           ),
         ],
+        ),
       ),
     );
   }
