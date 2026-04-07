@@ -19,21 +19,14 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
   // Location state
   String? _selectedProvinceId;
   String? _selectedCityId;
-  String? _selectedDistrictId;
   String? _selectedProvince;
   String? _selectedCity;
-  String? _selectedDistrict;
-  String? _selectedVillage;
 
   List<Map<String, String>> _provinces = [];
   List<Map<String, String>> _cities = [];
-  List<Map<String, String>> _districts = [];
-  List<Map<String, String>> _villages = [];
 
   bool _loadingProvinces = false;
   bool _loadingCities = false;
-  bool _loadingDistricts = false;
-  bool _loadingVillages = false;
 
   @override
   void initState() {
@@ -78,12 +71,7 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
       _selectedProvince = name;
       _selectedCityId = null;
       _selectedCity = null;
-      _selectedDistrictId = null;
-      _selectedDistrict = null;
-      _selectedVillage = null;
       _cities = [];
-      _districts = [];
-      _villages = [];
       _loadingCities = true;
     });
     try {
@@ -95,41 +83,11 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
     }
   }
 
-  Future<void> _onCityChanged(String id, String name) async {
+  void _onCityChanged(String id, String name) {
     setState(() {
       _selectedCityId = id;
       _selectedCity = name;
-      _selectedDistrictId = null;
-      _selectedDistrict = null;
-      _selectedVillage = null;
-      _districts = [];
-      _villages = [];
-      _loadingDistricts = true;
     });
-    try {
-      final list = await _fetch('$_apiBase/districts/$id');
-      setState(() => _districts = list);
-    } catch (_) {
-    } finally {
-      setState(() => _loadingDistricts = false);
-    }
-  }
-
-  Future<void> _onDistrictChanged(String id, String name) async {
-    setState(() {
-      _selectedDistrictId = id;
-      _selectedDistrict = name;
-      _selectedVillage = null;
-      _villages = [];
-      _loadingVillages = true;
-    });
-    try {
-      final list = await _fetch('$_apiBase/villages/$id');
-      setState(() => _villages = list);
-    } catch (_) {
-    } finally {
-      setState(() => _loadingVillages = false);
-    }
   }
 
   @override
@@ -187,45 +145,14 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
               ),
               const SizedBox(height: 16),
 
-              // Kota + Kecamatan
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: _buildDropdown(
-                      label: 'Kota',
-                      items: _cities,
-                      value: _selectedCity,
-                      loading: _loadingCities,
-                      onChanged: _selectedProvinceId != null
-                          ? (id, name) => _onCityChanged(id, name)
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildDropdown(
-                      label: 'Kecamatan',
-                      items: _districts,
-                      value: _selectedDistrict,
-                      loading: _loadingDistricts,
-                      onChanged: _selectedCityId != null
-                          ? (id, name) => _onDistrictChanged(id, name)
-                          : null,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Kelurahan
+              // Kota
               _buildDropdown(
-                label: 'Kelurahan',
-                items: _villages,
-                value: _selectedVillage,
-                loading: _loadingVillages,
-                onChanged: _selectedDistrictId != null
-                    ? (_, name) => setState(() => _selectedVillage = name)
+                label: 'Kota (Opsional)',
+                items: _cities,
+                value: _selectedCity,
+                loading: _loadingCities,
+                onChanged: _selectedProvinceId != null
+                    ? (id, name) => _onCityChanged(id, name)
                     : null,
               ),
               const SizedBox(height: 16),
@@ -235,7 +162,7 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
                 children: [
                   Expanded(
                     child: _buildTextField(
-                      label: 'Durasi',
+                      label: 'Durasi (hari)',
                       controller: _durationController,
                     ),
                   ),
