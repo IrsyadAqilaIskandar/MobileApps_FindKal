@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
+import 'services/auth_state.dart';
 import 'map_page.dart';
 import 'search_overlay_page.dart';
 import 'buat_unggahan.dart';
@@ -451,6 +453,23 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildExplorasiCard(Unggahan unggahan) {
+    final user = AuthState.currentUser ?? {};
+    final isCurrentUser = unggahan.usernameHandle.replaceAll('@', '') == user['username'];
+    
+    String? avatarSource = unggahan.userAvatar;
+    if (isCurrentUser && user['profile_photo'] != null) {
+      avatarSource = user['profile_photo'] as String;
+    }
+
+    ImageProvider? avatarProvider;
+    if (avatarSource != null && avatarSource.isNotEmpty) {
+      if (avatarSource.startsWith('http')) {
+        avatarProvider = NetworkImage(avatarSource);
+      } else {
+        avatarProvider = FileImage(File(avatarSource));
+      }
+    }
+
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -478,8 +497,9 @@ class _HomePageState extends State<HomePage> {
                   CircleAvatar(
                     radius: 12,
                     backgroundColor: Colors.grey.shade400,
-                    backgroundImage: unggahan.userAvatar != null && unggahan.userAvatar!.isNotEmpty
-                        ? NetworkImage(unggahan.userAvatar!)
+                    backgroundImage: avatarProvider,
+                    child: avatarProvider == null
+                        ? const Icon(Icons.person, size: 16, color: Colors.white)
                         : null,
                   ),
                   const SizedBox(width: 8),
