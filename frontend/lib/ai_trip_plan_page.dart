@@ -341,88 +341,87 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
   }) {
     final bool enabled = !loading && items.isNotEmpty;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontFamily: 'Inter',
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Colors.black,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          height: 40,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(30),
-            border: Border.all(
-              color: enabled ? Colors.grey.shade400 : Colors.grey.shade300,
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF4AA5A6)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 12,
+              color: Colors.grey,
             ),
-            color: enabled ? Colors.white : Colors.grey.shade100,
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: loading
-              ? const Center(
-                  child: SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Color(0xFF4AA5A6),
-                    ),
-                  ),
-                )
-              : DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    isExpanded: true,
-                    value: value,
-                    hint: Text(
-                      enabled ? 'Pilih $label' : '',
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 14,
-                        color: Colors.grey.shade400,
-                      ),
-                    ),
-                    icon: Icon(
-                      Icons.unfold_more,
-                      size: 20,
-                      color: enabled
-                          ? Colors.grey.shade700
-                          : Colors.grey.shade400,
-                    ),
-                    style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 14,
-                      color: Colors.black,
-                    ),
-                    onChanged: enabled
-                        ? (selectedName) {
-                            if (selectedName == null) return;
-                            final item = items.firstWhere(
-                              (e) => e['name'] == selectedName,
-                            );
-                            onChanged!(item['id']!, item['name']!);
-                          }
-                        : null,
-                    items: items
-                        .map(
-                          (e) => DropdownMenuItem<String>(
-                            value: e['name'],
-                            child: Text(
-                              e['name']!,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        )
-                        .toList(),
+          if (loading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 6),
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Color(0xFF4AA5A6),
+                ),
+              ),
+            )
+          else
+            SizedBox(
+              height: 24,
+              child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                isExpanded: true,
+                value: value,
+                hint: Text(
+                  enabled ? 'Pilih $label' : '',
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 14,
+                    color: Colors.black54,
                   ),
                 ),
-        ),
-      ],
+                icon: const Icon(
+                  Icons.unfold_more,
+                  size: 20,
+                  color: Colors.black54,
+                ),
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 14,
+                  color: Colors.black,
+                  fontWeight: FontWeight.w500,
+                ),
+                onChanged: enabled
+                    ? (selectedName) {
+                        if (selectedName == null) return;
+                        final item = items.firstWhere(
+                          (e) => e['name'] == selectedName,
+                        );
+                        onChanged!(item['id']!, item['name']!);
+                      }
+                    : null,
+                items: items
+                    .map(
+                      (e) => DropdownMenuItem<String>(
+                        value: e['name'],
+                        child: Text(
+                          e['name']!,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+            ),
+        ],
+      ),
     );
   }
 }
