@@ -16,9 +16,8 @@ class _MapPageState extends State<MapPage> {
   final TextEditingController _searchController = TextEditingController();
   final MapController _mapController = MapController();
 
-  static const _fallback = LatLng(-0.5022, 117.1536);
-  LatLng? _userLocation;
-  bool _locating = false;
+  static const _defaultLocation = LatLng(-6.302640076739822, 106.63938340127805);
+  LatLng _userLocation = _defaultLocation;
 
   @override
   void initState() {
@@ -38,34 +37,9 @@ class _MapPageState extends State<MapPage> {
       permission = await Geolocator.requestPermission();
     }
 
-    // Stop the loading indicator so the map immediately renders using fallback location
-    if (mounted) setState(() => _locating = false);
-
-    if (permission == LocationPermission.whileInUse ||
-        permission == LocationPermission.always) {
-      await _moveToCurrentLocation();
-    }
-  }
-
-  Future<void> _moveToCurrentLocation() async {
-    try {
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 4),
-        ),
-      ).catchError((e) async {
-        final lastKnown = await Geolocator.getLastKnownPosition();
-        if (lastKnown != null) return lastKnown;
-        throw e;
-      });
-      final loc = LatLng(position.latitude, position.longitude);
-      if (mounted) {
-        setState(() => _userLocation = loc);
-        _mapController.move(loc, 15);
-      }
-    } catch (_) {
-      if (mounted) setState(() => _locating = false);
+    if (mounted) {
+      setState(() => _userLocation = _defaultLocation);
+      _mapController.move(_defaultLocation, 15);
     }
   }
 
@@ -88,17 +62,13 @@ class _MapPageState extends State<MapPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: _locating
-            ? const Center(
-                child: CircularProgressIndicator(color: Color(0xFF4AA5A6)),
-              )
-            : Stack(
+        child: Stack(
                 children: [
                   // ── MAP ──────────────────────────────────────────────────────
                   FlutterMap(
                     mapController: _mapController,
                     options: MapOptions(
-                      initialCenter: _userLocation ?? _fallback,
+                      initialCenter: _userLocation,
                       initialZoom: 15,
                     ),
                     children: [
@@ -107,11 +77,10 @@ class _MapPageState extends State<MapPage> {
                             'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                         userAgentPackageName: 'com.findkal.app',
                       ),
-                      if (_userLocation != null)
-                        MarkerLayer(
+                      MarkerLayer(
                           markers: [
                             Marker(
-                              point: _userLocation!,
+                              point: _userLocation,
                               child: Container(
                                 decoration: BoxDecoration(
                                   color: const Color(0xFF4AA5A6),
@@ -245,7 +214,7 @@ class _MapPageState extends State<MapPage> {
                     bottom: 20,
                     right: 16,
                     child: FloatingActionButton(
-                      onPressed: _moveToCurrentLocation,
+                      onPressed: () => _mapController.move(_defaultLocation, 15),
                       backgroundColor: Colors.white,
                       elevation: 4,
                       child: const Icon(
@@ -255,7 +224,7 @@ class _MapPageState extends State<MapPage> {
                     ),
                   ),
                 ],
-              ),
+        ),
       ),
 
       // ── BOTTOM NAVIGATION BAR ─────────────────────────────────────────

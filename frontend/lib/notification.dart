@@ -38,7 +38,8 @@ class NotificationPage extends StatelessWidget {
           ],
         ),
       ),
-      body: ListView(
+      body: SafeArea(
+        child: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
         children: [
           _buildNotificationItem(
@@ -60,6 +61,7 @@ class NotificationPage extends StatelessWidget {
                 "Kamu nambahin tempat-tempat ini di markah kamu. Berkunjung sekarang juga, yuk!",
           ),
         ],
+        ),
       ),
     );
   }

@@ -36,7 +36,8 @@ class TermsConditionsPage extends StatelessWidget {
           ),
         ),
       ),
-      body: const SingleChildScrollView(
+      body: SafeArea(
+        child: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(20, 24, 20, 40),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -109,6 +110,7 @@ class TermsConditionsPage extends StatelessWidget {
               ],
             ),
           ],
+        ),
         ),
       ),
     );

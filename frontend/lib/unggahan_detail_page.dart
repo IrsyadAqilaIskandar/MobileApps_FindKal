@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'models/unggahan.dart';
+import 'services/api_service.dart';
+import 'services/auth_state.dart';
 
 class UnggahanDetailPage extends StatelessWidget {
   final Unggahan unggahan;
@@ -39,12 +41,13 @@ class UnggahanDetailPage extends StatelessWidget {
             ),
           ],
         ),
-        actions: const [
-          BookmarkButton(),
-          SizedBox(width: 8),
+        actions: [
+          BookmarkButton(unggahan: unggahan),
+          const SizedBox(width: 8),
         ],
       ),
-      body: SingleChildScrollView(
+      body: SafeArea(
+        child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -170,6 +173,7 @@ class UnggahanDetailPage extends StatelessWidget {
             ),
             const SizedBox(height: 30),
           ],
+        ),
         ),
       ),
     );
@@ -403,7 +407,9 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
 }
 
 class BookmarkButton extends StatefulWidget {
-  const BookmarkButton({super.key});
+  final Unggahan unggahan;
+
+  const BookmarkButton({super.key, required this.unggahan});
 
   @override
   State<BookmarkButton> createState() => _BookmarkButtonState();
@@ -411,32 +417,66 @@ class BookmarkButton extends StatefulWidget {
 
 class _BookmarkButtonState extends State<BookmarkButton> {
   bool isBookmarked = false;
+  bool _loading = false;
 
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      icon: Icon(
-        isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-        color: const Color(0xFF4AA5A6),
-        size: 28,
-      ),
-      onPressed: () {
-        setState(() {
-          isBookmarked = !isBookmarked;
-        });
-        ScaffoldMessenger.of(context).clearSnackBars();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              isBookmarked ? 'Disimpan ke Markah' : 'Dihapus dari Markah',
-              style: const TextStyle(fontFamily: 'Inter'),
+      icon: _loading
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Color(0xFF4AA5A6),
+              ),
+            )
+          : Icon(
+              isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+              color: const Color(0xFF4AA5A6),
+              size: 28,
             ),
-            duration: const Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: const Color(0xFF4AA5A6),
-          ),
-        );
-      },
+      onPressed: _loading ? null : _toggle,
     );
+  }
+
+  Future<void> _toggle() async {
+    final userId = AuthState.currentUser?['id'];
+    final unggahanId = widget.unggahan.id;
+    if (userId == null || unggahanId == null) return;
+
+    setState(() => _loading = true);
+    try {
+      if (isBookmarked) {
+        await ApiService.removeBookmark(userId as int, unggahanId);
+      } else {
+        await ApiService.addBookmark(userId as int, unggahanId);
+      }
+      if (!mounted) return;
+      setState(() => isBookmarked = !isBookmarked);
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isBookmarked ? 'Disimpan ke Markah' : 'Dihapus dari Markah',
+            style: const TextStyle(fontFamily: 'Inter'),
+          ),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xFF4AA5A6),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Gagal. Coba lagi.', style: TextStyle(fontFamily: 'Inter')),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 }

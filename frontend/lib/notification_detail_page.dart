@@ -12,7 +12,8 @@ class NotificationDetailPage extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SingleChildScrollView(
+      body: SafeArea(
+        child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -145,6 +146,7 @@ class NotificationDetailPage extends StatelessWidget {
               ),
             ),
           ],
+        ),
         ),
       ),
     );

@@ -1,27 +1,8 @@
 import 'package:flutter/material.dart';
-
-// ── Model sederhana untuk item bookmark ─────────────────────────────────────
-class _BookmarkItem {
-  final String id;
-  final String name;
-  final Color placeholderColor;
-
-  const _BookmarkItem({
-    required this.id,
-    required this.name,
-    required this.placeholderColor,
-  });
-}
-
-// ── Dummy data placeholder ───────────────────────────────────────────────────
-final List<_BookmarkItem> _dummyBookmarks = [
-  _BookmarkItem(id: '1', name: 'Nama Tempat 1', placeholderColor: Colors.blueGrey),
-  _BookmarkItem(id: '2', name: 'Nama Tempat 2', placeholderColor: Colors.teal),
-  _BookmarkItem(id: '3', name: 'Nama Tempat 3', placeholderColor: Colors.indigo),
-  _BookmarkItem(id: '4', name: 'Nama Tempat 4', placeholderColor: Colors.brown),
-  _BookmarkItem(id: '5', name: 'Nama Tempat 5', placeholderColor: Colors.green),
-  _BookmarkItem(id: '6', name: 'Nama Tempat 6', placeholderColor: Colors.deepOrange),
-];
+import 'models/unggahan.dart';
+import 'services/api_service.dart';
+import 'services/auth_state.dart';
+import 'unggahan_detail_page.dart';
 
 // ── Main Page ────────────────────────────────────────────────────────────────
 class BookmarkPage extends StatefulWidget {
@@ -33,15 +14,43 @@ class BookmarkPage extends StatefulWidget {
 
 class _BookmarkPageState extends State<BookmarkPage> {
   final TextEditingController _searchController = TextEditingController();
-  List<_BookmarkItem> _bookmarks = List.from(_dummyBookmarks);
-  List<_BookmarkItem> _filtered = List.from(_dummyBookmarks);
+  List<Unggahan> _bookmarks = [];
+  List<Unggahan> _filtered = [];
   bool _isEditMode = false;
-  final Set<String> _selectedIds = {};
+  bool _loading = true;
+  final Set<int> _selectedIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchBookmarks();
+  }
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _fetchBookmarks() async {
+    final userId = AuthState.currentUser?['id'];
+    if (userId == null) {
+      setState(() => _loading = false);
+      return;
+    }
+    try {
+      final data = await ApiService.fetchBookmarks(userId as int);
+      final list = data.map((j) => Unggahan.fromJson(j)).toList();
+      if (mounted) {
+        setState(() {
+          _bookmarks = list;
+          _filtered = list;
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   // ── Search ─────────────────────────────────────────────────────────────────
@@ -52,7 +61,7 @@ class _BookmarkPageState extends State<BookmarkPage> {
       } else {
         _filtered = _bookmarks
             .where((b) =>
-                b.name.toLowerCase().contains(query.trim().toLowerCase()))
+                b.placeName.toLowerCase().contains(query.trim().toLowerCase()))
             .toList();
       }
     });
@@ -78,12 +87,12 @@ class _BookmarkPageState extends State<BookmarkPage> {
       if (_selectedIds.length == _filtered.length) {
         _selectedIds.clear();
       } else {
-        _selectedIds.addAll(_filtered.map((b) => b.id));
+        _selectedIds.addAll(_filtered.map((b) => b.id!));
       }
     });
   }
 
-  void _toggleSelect(String id) {
+  void _toggleSelect(int id) {
     setState(() {
       if (_selectedIds.contains(id)) {
         _selectedIds.remove(id);
@@ -178,7 +187,14 @@ class _BookmarkPageState extends State<BookmarkPage> {
     );
   }
 
-  void _deleteSelected() {
+  Future<void> _deleteSelected() async {
+    final userId = AuthState.currentUser?['id'];
+    if (userId == null) return;
+    for (final id in _selectedIds) {
+      try {
+        await ApiService.removeBookmark(userId as int, id);
+      } catch (_) {}
+    }
     setState(() {
       _bookmarks.removeWhere((b) => _selectedIds.contains(b.id));
       _filtered.removeWhere((b) => _selectedIds.contains(b.id));
@@ -357,19 +373,23 @@ class _BookmarkPageState extends State<BookmarkPage> {
 
             // ── LIST ───────────────────────────────────────────────────
             Expanded(
-              child: _bookmarks.isEmpty
-                  ? _buildEmptyState()
-                  : _filtered.isEmpty
-                      ? _buildNoResult()
-                      : ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
-                          itemCount: _filtered.length,
-                          itemBuilder: (context, index) {
-                            final item = _filtered[index];
-                            final isSelected = _selectedIds.contains(item.id);
-                            return _buildCard(item, isSelected);
-                          },
-                        ),
+              child: _loading
+                  ? const Center(
+                      child: CircularProgressIndicator(color: Color(0xFF4AA5A6)),
+                    )
+                  : _bookmarks.isEmpty
+                      ? _buildEmptyState()
+                      : _filtered.isEmpty
+                          ? _buildNoResult()
+                          : ListView.builder(
+                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                              itemCount: _filtered.length,
+                              itemBuilder: (context, index) {
+                                final item = _filtered[index];
+                                final isSelected = _selectedIds.contains(item.id);
+                                return _buildCard(item, isSelected);
+                              },
+                            ),
             ),
           ],
         ),
@@ -377,10 +397,9 @@ class _BookmarkPageState extends State<BookmarkPage> {
 
       // ── BOTTOM DELETE BAR (edit mode) ──────────────────────────────
       bottomSheet: _isEditMode
-          ? SafeArea(
-              child: GestureDetector(
-                onTap: _selectedIds.isEmpty ? null : _showDeleteDialog,
-                child: Container(
+          ? GestureDetector(
+              onTap: _selectedIds.isEmpty ? null : _showDeleteDialog,
+              child: Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -394,7 +413,10 @@ class _BookmarkPageState extends State<BookmarkPage> {
                       ),
                     ),
                   ),
-                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  padding: EdgeInsets.only(
+                    top: 10,
+                    bottom: 10 + MediaQuery.of(context).padding.bottom,
+                  ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -414,7 +436,6 @@ class _BookmarkPageState extends State<BookmarkPage> {
                       ),
                     ],
                   ),
-                ),
               ),
             )
           : null,
@@ -422,14 +443,25 @@ class _BookmarkPageState extends State<BookmarkPage> {
   }
 
   // ── Card ───────────────────────────────────────────────────────────────────
-  Widget _buildCard(_BookmarkItem item, bool isSelected) {
+  Widget _buildCard(Unggahan item, bool isSelected) {
+    final firstImage = item.imagePaths.isNotEmpty ? item.imagePaths.first : null;
+
     return GestureDetector(
-      onTap: _isEditMode ? () => _toggleSelect(item.id) : null,
+      onTap: _isEditMode
+          ? () => _toggleSelect(item.id!)
+          : () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => UnggahanDetailPage(unggahan: item),
+                ),
+              );
+            },
       child: Container(
         height: 160,
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: item.placeholderColor.withOpacity(0.35),
+          color: Colors.grey.shade300,
           borderRadius: BorderRadius.circular(16),
           border: isSelected
               ? Border.all(color: const Color(0xFF4AA5A6), width: 2.5)
@@ -437,21 +469,30 @@ class _BookmarkPageState extends State<BookmarkPage> {
         ),
         child: Stack(
           children: [
-            // Placeholder image area
+            // Image area
             ClipRRect(
               borderRadius: BorderRadius.circular(16),
-              child: Container(
-                width: double.infinity,
-                height: double.infinity,
-                color: item.placeholderColor.withOpacity(0.5),
-                child: Center(
-                  child: Icon(
-                    Icons.image_outlined,
-                    size: 40,
-                    color: Colors.white.withOpacity(0.6),
-                  ),
-                ),
-              ),
+              child: firstImage != null
+                  ? Image.network(
+                      firstImage,
+                      width: double.infinity,
+                      height: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: Colors.grey.shade300,
+                        child: Center(
+                          child: Icon(Icons.image_outlined,
+                              size: 40, color: Colors.white.withOpacity(0.6)),
+                        ),
+                      ),
+                    )
+                  : Container(
+                      color: Colors.grey.shade300,
+                      child: Center(
+                        child: Icon(Icons.image_outlined,
+                            size: 40, color: Colors.white.withOpacity(0.6)),
+                      ),
+                    ),
             ),
 
             // Gradient overlay bawah
@@ -481,7 +522,7 @@ class _BookmarkPageState extends State<BookmarkPage> {
               bottom: 14,
               left: 14,
               child: Text(
-                item.name,
+                item.placeName,
                 style: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 16,

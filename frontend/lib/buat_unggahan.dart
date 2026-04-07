@@ -108,7 +108,8 @@ class _BuatUnggahanPageState extends State<BuatUnggahanPage> {
           ),
         ),
       ),
-      body: Column(
+      body: SafeArea(
+        child: Column(
         children: [
           Expanded(
             child: SingleChildScrollView(
@@ -315,6 +316,7 @@ class _BuatUnggahanPageState extends State<BuatUnggahanPage> {
     ),
   ],
 ),
+      ),
     );
   }
 

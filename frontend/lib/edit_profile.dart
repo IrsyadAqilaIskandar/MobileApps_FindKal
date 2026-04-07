@@ -191,7 +191,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
         ),
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
+      body: SafeArea(
+        child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -331,6 +332,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
             ),
           ],
+        ),
         ),
       ),
     );

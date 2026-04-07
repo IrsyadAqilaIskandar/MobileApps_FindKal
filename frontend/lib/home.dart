@@ -25,7 +25,7 @@ class _HomePageState extends State<HomePage> {
   bool _loadingFeed = true;
 
   final MapController _mapController = MapController();
-  static const _fallback = LatLng(-0.5022, 117.1536);
+  static const _defaultLocation = LatLng(-6.302640076739822, 106.63938340127805);
   LatLng? _userLocation;
   bool _locating = false;
 
@@ -63,33 +63,12 @@ class _HomePageState extends State<HomePage> {
       permission = await Geolocator.requestPermission();
     }
 
-    if (mounted) setState(() => _locating = false);
-
-    if (permission == LocationPermission.whileInUse ||
-        permission == LocationPermission.always) {
-      await _moveToCurrentLocation();
-    }
-  }
-
-  Future<void> _moveToCurrentLocation() async {
-    try {
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 4),
-        ),
-      ).catchError((e) async {
-        final lastKnown = await Geolocator.getLastKnownPosition();
-        if (lastKnown != null) return lastKnown;
-        throw e;
+    if (mounted) {
+      setState(() {
+        _locating = false;
+        _userLocation = _defaultLocation;
       });
-      final loc = LatLng(position.latitude, position.longitude);
-      if (mounted) {
-        setState(() => _userLocation = loc);
-        _mapController.move(loc, 15);
-      }
-    } catch (_) {
-      if (mounted) setState(() => _locating = false);
+      _mapController.move(_defaultLocation, 15);
     }
   }
 
@@ -287,7 +266,7 @@ class _HomePageState extends State<HomePage> {
                                   child: FlutterMap(
                                     mapController: _mapController,
                                     options: MapOptions(
-                                      initialCenter: _userLocation ?? _fallback,
+                                      initialCenter: _userLocation ?? _defaultLocation,
                                       initialZoom: 15,
                                       interactionOptions: const InteractionOptions(
                                         flags: InteractiveFlag.none,

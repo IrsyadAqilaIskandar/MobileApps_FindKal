@@ -165,17 +165,7 @@ class _MapDirectionPageState extends State<MapDirectionPage> {
         return;
       }
 
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 4),
-        ),
-      ).catchError((e) async {
-        final lastKnown = await Geolocator.getLastKnownPosition();
-        if (lastKnown != null) return lastKnown;
-        throw e;
-      });
-      final origin = LatLng(position.latitude, position.longitude);
+      const origin = LatLng(-6.302640076739822, 106.63938340127805);
       setState(() => _userLocation = origin);
 
       final url = Uri.parse(
