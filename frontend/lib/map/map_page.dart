@@ -37,9 +37,29 @@ class _MapPageState extends State<MapPage> {
       permission = await Geolocator.requestPermission();
     }
 
-    if (mounted) {
-      setState(() => _userLocation = _defaultLocation);
-      _mapController.move(_defaultLocation, 15);
+    if (permission == LocationPermission.deniedForever ||
+        permission == LocationPermission.denied) {
+      if (mounted) {
+        setState(() => _userLocation = _defaultLocation);
+        _mapController.move(_defaultLocation, 15);
+      }
+      return;
+    }
+
+    try {
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+      if (mounted) {
+        final loc = LatLng(pos.latitude, pos.longitude);
+        setState(() => _userLocation = loc);
+        _mapController.move(loc, 15);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _userLocation = _defaultLocation);
+        _mapController.move(_defaultLocation, 15);
+      }
     }
   }
 

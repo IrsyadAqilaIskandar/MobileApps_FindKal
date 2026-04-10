@@ -89,8 +89,18 @@ class _MapSearchResultPageState extends State<MapSearchResultPage> {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
-    if (mounted) {
-      setState(() => _userLocation = const LatLng(-6.302640076739822, 106.63938340127805));
+    if (permission != LocationPermission.deniedForever &&
+        permission != LocationPermission.denied) {
+      try {
+        final pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        );
+        if (mounted) {
+          setState(() => _userLocation = LatLng(pos.latitude, pos.longitude));
+        }
+      } catch (_) {
+        // fall through — search without user location
+      }
     }
     await _search(query);
   }

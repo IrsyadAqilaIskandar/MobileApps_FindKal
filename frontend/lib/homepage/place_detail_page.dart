@@ -126,7 +126,10 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> with SingleTickerProv
                 MaterialPageRoute(
                   builder: (context) => MapDirectionPage(
                     destinationName: widget.place.placeName,
-                    destination: const LatLng(-6.175392, 106.827153), // Dummy coord for logic testing
+                    destination: const LatLng(0, 0),
+                    destinationAddress: widget.place.unggahans.isNotEmpty
+                        ? widget.place.unggahans.first.address
+                        : widget.place.placeName,
                   ),
                 ),
               );
@@ -331,17 +334,21 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> with SingleTickerProv
                     ],
                   ),
                   const SizedBox(width: 24),
-                  // Fake progress bars
                   Expanded(
-                    child: Column(
-                      children: [
-                        _buildRatingBar(5, 0.8),
-                        _buildRatingBar(4, 0.15),
-                        _buildRatingBar(3, 0.05),
-                        _buildRatingBar(2, 0.0),
-                        _buildRatingBar(1, 0.0),
-                      ],
-                    ),
+                    child: Builder(builder: (context) {
+                      final total = widget.place.unggahans.length;
+                      int countFor(int star) => widget.place.unggahans.where((u) => u.rating == star).length;
+                      double fillFor(int star) => total == 0 ? 0.0 : countFor(star) / total;
+                      return Column(
+                        children: [
+                          _buildRatingBar(5, fillFor(5)),
+                          _buildRatingBar(4, fillFor(4)),
+                          _buildRatingBar(3, fillFor(3)),
+                          _buildRatingBar(2, fillFor(2)),
+                          _buildRatingBar(1, fillFor(1)),
+                        ],
+                      );
+                    }),
                   ),
                 ],
               ),

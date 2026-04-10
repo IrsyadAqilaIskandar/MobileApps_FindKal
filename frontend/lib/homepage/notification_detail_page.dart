@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
-import 'models/unggahan.dart';
+import '../models/unggahan.dart';
 
 class NotificationDetailPage extends StatelessWidget {
   final String? title;

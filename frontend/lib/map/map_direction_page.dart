@@ -22,11 +22,13 @@ double _haversineSimple(double lat1, double lon1, double lat2, double lon2) {
 class MapDirectionPage extends StatefulWidget {
   final String destinationName;
   final LatLng destination;
+  final String? destinationAddress;
 
   const MapDirectionPage({
     super.key,
     required this.destinationName,
     required this.destination,
+    this.destinationAddress,
   });
 
   @override
@@ -57,7 +59,42 @@ class _MapDirectionPageState extends State<MapDirectionPage> {
     _currentDestination = widget.destination;
     _currentDestinationName = widget.destinationName;
     _searchController = TextEditingController(text: _currentDestinationName);
-    _loadRoute();
+    if (widget.destinationAddress != null && widget.destinationAddress!.isNotEmpty) {
+      _geocodeAddressThenRoute(widget.destinationAddress!);
+    } else {
+      _loadRoute();
+    }
+  }
+
+  /// Geocode a text address via Nominatim, then load the route.
+  Future<void> _geocodeAddressThenRoute(String address) async {
+    try {
+      final query = '${widget.destinationName} $address';
+      final params = <String, String>{
+        'q': query,
+        'format': 'json',
+        'limit': '5',
+        'addressdetails': '1',
+      };
+      final uri = Uri.https('nominatim.openstreetmap.org', '/search', params);
+      final res = await http.get(uri, headers: {
+        'User-Agent': 'FindKalApp/1.0',
+        'Accept-Language': 'id,en',
+      });
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as List;
+        if (data.isNotEmpty) {
+          final place = data.first as Map<String, dynamic>;
+          _currentDestination = LatLng(
+            double.parse(place['lat'] as String),
+            double.parse(place['lon'] as String),
+          );
+        }
+      }
+    } catch (_) {
+      // Keep widget.destination as fallback
+    }
+    await _loadRoute();
   }
 
   @override
@@ -165,7 +202,15 @@ class _MapDirectionPageState extends State<MapDirectionPage> {
         return;
       }
 
-      const origin = LatLng(-6.302640076739822, 106.63938340127805);
+      LatLng origin;
+      try {
+        final pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        );
+        origin = LatLng(pos.latitude, pos.longitude);
+      } catch (_) {
+        origin = const LatLng(-6.302640076739822, 106.63938340127805);
+      }
       setState(() => _userLocation = origin);
 
       final url = Uri.parse(

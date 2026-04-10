@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'models/unggahan.dart';
-import 'services/api_service.dart';
-import 'services/auth_state.dart';
-import 'bookmark_page.dart';
-import 'unggahan_detail_page.dart';
+import '../models/unggahan.dart';
+import '../services/api_service.dart';
+import '../services/auth_state.dart';
+import '../profile/bookmark_page.dart';
+import '../unggahan/unggahan_detail_page.dart';
 import 'notification_detail_page.dart';
 
 class NotificationPage extends StatefulWidget {

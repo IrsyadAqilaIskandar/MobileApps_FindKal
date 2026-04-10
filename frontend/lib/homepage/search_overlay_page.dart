@@ -36,6 +36,7 @@ class _SearchOverlayPageState extends State<SearchOverlayPage> {
   List<PlaceSummary> _allPlaces = [];
   List<PlaceSummary> _displayedPlaces = [];
   bool _loading = true;
+  String? _errorMessage;
 
   int _selectedFilter = 0; // 0 = Terbaru, 1 = Populer, 2 = Terfavorit
   double _minRatingFilter = 0.0; // Filter by minimum rating
@@ -83,13 +84,14 @@ class _SearchOverlayPageState extends State<SearchOverlayPage> {
           _allPlaces = summaries;
           _displayedPlaces = List.from(summaries);
           _loading = false;
-          _applyFilter();
         });
+        _applyFilter();
       }
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         setState(() {
           _loading = false;
+          _errorMessage = e.toString();
         });
       }
     }
@@ -248,7 +250,25 @@ class _SearchOverlayPageState extends State<SearchOverlayPage> {
                           children: [
                             Icon(Icons.search_off, size: 64, color: Colors.grey.shade300),
                             const SizedBox(height: 16),
-                            Text("Tidak ada hasil yang cocok.", style: TextStyle(fontFamily: 'Inter', color: Colors.grey.shade500, fontSize: 16)),
+                            if (_errorMessage != null) ...[
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 24),
+                                child: Text(
+                                  _errorMessage!,
+                                  style: const TextStyle(fontFamily: 'Inter', color: Colors.red, fontSize: 13),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              TextButton(
+                                onPressed: () {
+                                  setState(() { _loading = true; _errorMessage = null; });
+                                  _fetchPlaces();
+                                },
+                                child: const Text('Coba lagi', style: TextStyle(fontFamily: 'Inter', color: Color(0xFF4AA5A6))),
+                              ),
+                            ] else
+                              Text("Tidak ada hasil yang cocok.", style: TextStyle(fontFamily: 'Inter', color: Colors.grey.shade500, fontSize: 16)),
                           ],
                         ),
                       )
