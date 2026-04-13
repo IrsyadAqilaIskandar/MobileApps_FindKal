@@ -562,7 +562,18 @@ class _HomePageState extends State<HomePage> {
                     child: _loadingFeed
                         ? const Center(child: CircularProgressIndicator(color: Color(0xFF4AA5A6)))
                         : _unggahans.isEmpty
-                            ? const Center(child: Text('Belum ada unggahan.', style: TextStyle(fontFamily: 'Inter', color: Colors.grey)))
+                            ? Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                                  child: Text(
+                                    _locationGranted
+                                        ? 'Belum ada rekomendasi di area sekitarmu saat ini.'
+                                        : 'Belum ada unggahan.',
+                                    style: const TextStyle(fontFamily: 'Inter', color: Colors.grey),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              )
                             : ListView.builder(
                                 scrollDirection: Axis.horizontal,
                                 padding: const EdgeInsets.only(left: 16, right: 8),

@@ -7,6 +7,8 @@ import '../models/unggahan.dart';
 import 'search_overlay_page.dart';
 import '../unggahan/unggahan_detail_page.dart';
 import '../map/map_direction_page.dart'; // import map direction page
+import '../services/auth_state.dart';
+import '../services/api_service.dart';
 
 class PlaceDetailPage extends StatefulWidget {
   final PlaceSummary place;
@@ -23,11 +25,77 @@ class PlaceDetailPage extends StatefulWidget {
 class _PlaceDetailPageState extends State<PlaceDetailPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   bool _isSaved = false;
+  bool _savingBookmark = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _checkIfSaved();
+  }
+
+  Future<void> _checkIfSaved() async {
+    final userId = AuthState.currentUser?['id'];
+    if (userId == null) return;
+    try {
+      final data = await ApiService.fetchBookmarks(userId as int);
+      final bookmarkedIds = data.map((j) => j['id'] as int?).toSet();
+      final placeIds = widget.place.unggahans.map((u) => u.id).toSet();
+      if (mounted) {
+        setState(() {
+          _isSaved = placeIds.any((id) => id != null && bookmarkedIds.contains(id));
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _toggleSave() async {
+    final userId = AuthState.currentUser?['id'];
+    if (userId == null) return;
+    final rep = widget.place.unggahans.firstWhere(
+      (u) => u.id != null,
+      orElse: () => widget.place.unggahans.first,
+    );
+    if (rep.id == null) return;
+
+    setState(() => _savingBookmark = true);
+    try {
+      if (_isSaved) {
+        // Remove all bookmarked unggahans from this place
+        for (final u in widget.place.unggahans) {
+          if (u.id != null) {
+            try {
+              await ApiService.removeBookmark(userId as int, u.id!);
+            } catch (_) {}
+          }
+        }
+      } else {
+        await ApiService.addBookmark(userId as int, rep.id!);
+      }
+      if (mounted) {
+        setState(() => _isSaved = !_isSaved);
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _isSaved
+                  ? '${widget.place.placeName} disimpan ke bookmark'
+                  : '${widget.place.placeName} dihapus dari bookmark',
+            ),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal memperbarui bookmark.'), duration: Duration(seconds: 2)),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _savingBookmark = false);
+    }
   }
 
   @override
@@ -135,18 +203,12 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> with SingleTickerProv
                 ),
               );
             }),
-            _buildActionItem(_isSaved ? Icons.bookmark : Icons.bookmark_border, "Save", false, () {
-              setState(() {
-                _isSaved = !_isSaved;
-              });
-              ScaffoldMessenger.of(context).clearSnackBars();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(_isSaved ? '${widget.place.placeName} disimpan ke bookmark' : '${widget.place.placeName} dihapus dari bookmark'),
-                  duration: const Duration(seconds: 1),
-                ),
-              );
-            }),
+            _buildActionItem(
+              _isSaved ? Icons.bookmark : Icons.bookmark_border,
+              "Save",
+              false,
+              _savingBookmark ? null : _toggleSave,
+            ),
             _buildActionItem(Icons.share_outlined, "Share", false, () {
               final place = widget.place;
               final rep = place.unggahans.isNotEmpty ? place.unggahans.first : null;
@@ -181,7 +243,7 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> with SingleTickerProv
     );
   }
 
-  Widget _buildActionItem(IconData icon, String label, bool isPrimary, VoidCallback onTap) {
+  Widget _buildActionItem(IconData icon, String label, bool isPrimary, VoidCallback? onTap) {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
