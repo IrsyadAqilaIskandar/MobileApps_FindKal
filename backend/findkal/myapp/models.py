@@ -180,6 +180,8 @@ class Unggahan(models.Model):
     ulasan      = models.TextField()
     rating      = models.PositiveSmallIntegerField()  # 1–5
     budget      = models.CharField(max_length=30, choices=BUDGET_CHOICES)
+    latitude    = models.FloatField(null=True, blank=True)
+    longitude   = models.FloatField(null=True, blank=True)
     created_at  = models.DateTimeField(auto_now_add=True)
 
     class Meta:

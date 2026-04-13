@@ -7,9 +7,22 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
+import math as _math
 import random as _random
 from django.utils import timezone as _tz
 import datetime as _dt
+
+
+def _haversine_km(lat1, lon1, lat2, lon2):
+    """Return great-circle distance in kilometres between two coordinates."""
+    R = 6371.0
+    dlat = _math.radians(lat2 - lat1)
+    dlon = _math.radians(lon2 - lon1)
+    a = (_math.sin(dlat / 2) ** 2
+         + _math.cos(_math.radians(lat1))
+         * _math.cos(_math.radians(lat2))
+         * _math.sin(dlon / 2) ** 2)
+    return R * 2 * _math.asin(_math.sqrt(a))
 from .models import (
     User, EmailVerification, PasswordResetToken, PendingEmailVerification,
     Unggahan, UnggahanImage, Bookmark,
@@ -549,6 +562,8 @@ def _serialize_unggahan(unggahan, request):
         "budget":          unggahan.budget,
         "imagePaths":      images,
         "createdAt":       unggahan.created_at.isoformat(),
+        "latitude":        unggahan.latitude,
+        "longitude":       unggahan.longitude,
     }
 
 
@@ -558,9 +573,28 @@ def _serialize_unggahan(unggahan, request):
 # POST /api/unggahan/          — multipart: user_id, nama_tempat, alamat,
 #                                ulasan, rating, budget, image (×1-4)
 # ---------------------------------------------------------------------------
+_NEARBY_RADIUS_KM = 15.0
+
+
 class UnggahanListCreateView(APIView):
     def get(self, request):
         unggahans = Unggahan.objects.select_related("user").prefetch_related("images").all()
+
+        # Optional proximity filter: ?lat=X&lng=Y
+        try:
+            user_lat = float(request.query_params["lat"])
+            user_lng = float(request.query_params["lng"])
+            filtered = []
+            for u in unggahans:
+                if u.latitude is not None and u.longitude is not None:
+                    dist = _haversine_km(user_lat, user_lng, u.latitude, u.longitude)
+                    if dist <= _NEARBY_RADIUS_KM:
+                        filtered.append(u)
+            unggahans = filtered
+        except (KeyError, ValueError, TypeError):
+            # No valid lat/lng provided — return all
+            pass
+
         return Response([_serialize_unggahan(u, request) for u in unggahans])
 
     def post(self, request):

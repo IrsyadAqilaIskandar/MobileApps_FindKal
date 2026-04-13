@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'terms_conditions_page.dart';
 import 'privacy_notice_page.dart';
 import 'password_security_page.dart';
@@ -156,6 +157,25 @@ class SettingsPage extends StatelessWidget {
 
           const SizedBox(height: 32),
 
+          // ── PRIVASI & IZIN ──────────────────────────────────────────
+          const Text(
+            'Privasi & Izin',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF4AA5A6),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildMenuItem(
+            label: 'Izin Lokasi',
+            subtitle: 'Digunakan untuk menampilkan tempat dalam radius 15 km',
+            onTap: () => Geolocator.openAppSettings(),
+          ),
+
+          const SizedBox(height: 32),
+
           // ── SURVEY WARGA LOKAL ───────────────────────────────────────
           const Text(
             'Komunitas',
@@ -195,6 +215,7 @@ class SettingsPage extends StatelessWidget {
   Widget _buildMenuItem({
     required String label,
     required VoidCallback onTap,
+    String? subtitle,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -204,13 +225,31 @@ class SettingsPage extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              label,
-              style: const TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: Colors.black,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black,
+                    ),
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 12,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
             const Icon(

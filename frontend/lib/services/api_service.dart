@@ -284,11 +284,17 @@ class ApiService {
   }
 
   /// Fetch all unggahan (newest first)
-  static Future<List<Map<String, dynamic>>> fetchUnggahans() async {
+  static Future<List<Map<String, dynamic>>> fetchUnggahans({
+    double? lat,
+    double? lng,
+  }) async {
     try {
-      final response = await http
-          .get(Uri.parse('$_baseUrl/unggahan/'))
-          .timeout(const Duration(seconds: 15));
+      final uri = Uri.parse('$_baseUrl/unggahan/').replace(
+        queryParameters: (lat != null && lng != null)
+            ? {'lat': lat.toString(), 'lng': lng.toString()}
+            : null,
+      );
+      final response = await http.get(uri).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final list = jsonDecode(response.body) as List;

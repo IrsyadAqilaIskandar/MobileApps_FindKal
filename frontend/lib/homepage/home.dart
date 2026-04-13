@@ -34,15 +34,18 @@ class _HomePageState extends State<HomePage> {
   final MapController _mapController = MapController();
   static const _defaultLocation = LatLng(-6.302640076739822, 106.63938340127805);
   LatLng? _userLocation;
-  bool _locating = false;
+  bool _locating = true; // true until GPS position (or denial) is resolved
+
+  // Location permission state
+  bool _locationGranted = false;
+  bool _locationPermanentlyDenied = false;
 
   @override
   void initState() {
     super.initState();
     _selectedIndex = widget.initialIndex;
-    _requestLocationAndMove();
-    _fetchUnggahans();
-    
+    _initLocation();
+
     if (widget.pendingUpload != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _handlePendingUpload();
@@ -91,7 +94,11 @@ class _HomePageState extends State<HomePage> {
         ),
       );
       // Refresh list kalau ada
-      _fetchUnggahans();
+      final loc = _userLocation;
+      _fetchUnggahans(
+        _locationGranted && loc != null ? loc.latitude : null,
+        _locationGranted && loc != null ? loc.longitude : null,
+      );
     } catch (e) {
       scaffoldMessenger.hideCurrentSnackBar();
       scaffoldMessenger.showSnackBar(
@@ -107,16 +114,81 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _fetchUnggahans() async {
+  /// Request location permission, get GPS fix, then fetch nearby places.
+  Future<void> _initLocation() async {
+    LocationPermission permission = await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      if (mounted) {
+        setState(() {
+          _locationPermanentlyDenied = true;
+          _locationGranted = false;
+          _locating = false;
+          _userLocation = _defaultLocation;
+        });
+        _mapController.move(_defaultLocation, 15);
+      }
+      await _fetchUnggahans(null, null);
+      return;
+    }
+
+    if (permission == LocationPermission.denied) {
+      // User tapped "Don't allow" on the dialog
+      if (mounted) {
+        setState(() {
+          _locationGranted = false;
+          _locating = false;
+          _userLocation = _defaultLocation;
+        });
+        _mapController.move(_defaultLocation, 15);
+      }
+      await _fetchUnggahans(null, null);
+      return;
+    }
+
+    // Permission granted — get actual position
+    try {
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+      if (mounted) {
+        setState(() {
+          _locationGranted = true;
+          _locating = false;
+          _userLocation = LatLng(pos.latitude, pos.longitude);
+        });
+        _mapController.move(_userLocation!, 15);
+      }
+      await _fetchUnggahans(pos.latitude, pos.longitude);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _locationGranted = true;
+          _locating = false;
+          _userLocation = _defaultLocation;
+        });
+        _mapController.move(_defaultLocation, 15);
+      }
+      await _fetchUnggahans(null, null);
+    }
+  }
+
+  Future<void> _fetchUnggahans(double? lat, double? lng) async {
     try {
       final user = AuthState.currentUser ?? {};
       final currentUserUsername = user['username'] ?? '';
-      
-      final data = await ApiService.fetchUnggahans();
+
+      final data = await ApiService.fetchUnggahans(lat: lat, lng: lng);
       if (mounted) {
         setState(() {
           final allUnggahans = data.map((j) => Unggahan.fromJson(j)).toList();
-          _unggahans = allUnggahans.where((u) => u.usernameHandle.replaceAll('@', '') != currentUserUsername).toList();
+          _unggahans = allUnggahans
+              .where((u) => u.usernameHandle.replaceAll('@', '') != currentUserUsername)
+              .toList();
           _loadingFeed = false;
         });
       }
@@ -185,21 +257,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Future<void> _requestLocationAndMove() async {
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
-
-    if (mounted) {
-      setState(() {
-        _locating = false;
-        _userLocation = _defaultLocation;
-      });
-      _mapController.move(_defaultLocation, 15);
-    }
-  }
-
   void _onItemTapped(int index) async {
   if (index == 1) {
     final result = await Navigator.push(
@@ -266,7 +323,13 @@ class _HomePageState extends State<HomePage> {
     return Stack(
       children: [
         RefreshIndicator(
-          onRefresh: _fetchUnggahans,
+          onRefresh: () {
+            final loc = _userLocation;
+            return _fetchUnggahans(
+              _locationGranted && loc != null ? loc.latitude : null,
+              _locationGranted && loc != null ? loc.longitude : null,
+            );
+          },
           color: const Color(0xFF4AA5A6),
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -444,11 +507,13 @@ class _HomePageState extends State<HomePage> {
                   const SizedBox(height: 30),
 
                   // Eksplorasi terdekat
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16.0),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: Text(
-                      "Eksplorasi terdekat",
-                      style: TextStyle(
+                      _locationGranted
+                          ? "Eksplorasi terdekat (15 km)"
+                          : "Eksplorasi tempat",
+                      style: const TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -456,7 +521,40 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 8),
+
+                  // Location denied banner
+                  if (!_locationGranted)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.orange.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.location_off_outlined, size: 16, color: Colors.orange.shade700),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _locationPermanentlyDenied
+                                    ? 'Izin lokasi ditolak. Aktifkan di Pengaturan untuk melihat tempat terdekat.'
+                                    : 'Aktifkan lokasi untuk melihat tempat dalam radius 15 km.',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 11,
+                                  color: Colors.orange.shade700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 8),
 
                   // Horizontal Scrollable Cards
                   SizedBox(
