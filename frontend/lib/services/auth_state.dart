@@ -3,6 +3,9 @@ class AuthState {
 
   static bool get isWargaLokal => currentUser?['is_warga_lokal'] == true;
 
+  static String get wargaLokalRegion =>
+      (currentUser?['warga_lokal_region'] as String? ?? '').trim();
+
   static int get attemptsUsed => (currentUser?['attempts_used'] as int?) ?? 0;
 
   static String? get lockedUntil => currentUser?['locked_until'] as String?;

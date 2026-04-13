@@ -5,7 +5,8 @@ import 'survey_result_page.dart';
 
 class SurveyLoadingPage extends StatefulWidget {
   final List<Map<String, dynamic>> answers;
-  const SurveyLoadingPage({super.key, required this.answers});
+  final String region;
+  const SurveyLoadingPage({super.key, required this.answers, this.region = ''});
 
   @override
   State<SurveyLoadingPage> createState() => _SurveyLoadingPageState();
@@ -47,7 +48,7 @@ class _SurveyLoadingPageState extends State<SurveyLoadingPage>
     final futures = await Future.wait([
       Future.delayed(const Duration(milliseconds: 2800)),
       userId != null
-          ? ApiService.submitSurveyAnswers(userId: userId, answers: widget.answers)
+          ? ApiService.submitSurveyAnswers(userId: userId, answers: widget.answers, region: widget.region)
               .catchError((e) => <String, dynamic>{'passed': false, 'score': 0, 'error': e.toString()})
           : Future.value(<String, dynamic>{'passed': false, 'score': 0}),
     ]);
@@ -57,6 +58,9 @@ class _SurveyLoadingPageState extends State<SurveyLoadingPage>
     // Update local auth state if passed
     if (result['passed'] == true && AuthState.currentUser != null) {
       AuthState.currentUser!['is_warga_lokal'] = true;
+      if (result['region'] != null) {
+        AuthState.currentUser!['warga_lokal_region'] = result['region'];
+      }
     }
     // Update attempt info in local state
     if (AuthState.currentUser != null) {

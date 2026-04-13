@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_state.dart';
-import 'survey_question_page.dart';
+import 'survey_region_page.dart';
 
 class SurveyIntroPage extends StatelessWidget {
   const SurveyIntroPage({super.key});
@@ -11,6 +11,7 @@ class SurveyIntroPage extends StatelessWidget {
     final isLocked = AuthState.isLockedOut;
     final attemptsUsed = AuthState.attemptsUsed;
     final attemptsRemaining = (3 - attemptsUsed).clamp(0, 3);
+    final region = AuthState.wargaLokalRegion;
 
     String? lockedUntilFormatted;
     if (isLocked && AuthState.lockedUntil != null) {
@@ -111,7 +112,7 @@ Positioned(
                   padding: const EdgeInsets.symmetric(horizontal: 36),
                   child: Text(
                     isVerified
-                        ? 'Kamu sudah menjadi warga lokal terverifikasi. Nikmati akses penuh untuk berbagi tempat favoritmu!'
+                        ? 'Kamu sudah menjadi Warga Lokal ${region.isNotEmpty ? region : ''} yang terverifikasi. Nikmati akses penuh untuk berbagi tempat favoritmu!'
                         : isLocked
                             ? 'Kamu telah kehabisan percobaan. Coba lagi setelah $lockedUntilFormatted.'
                             : 'Untuk menjaga komunitas kita tetap aman dan bebas dari gangguan bot, kami butuh bantuanmu untuk menjawab 5 pertanyaan singkat tentang daerahmu.',
@@ -153,7 +154,7 @@ Positioned(
                           ? null
                           : () => Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (_) => const SurveyQuestionPage()),
+                                MaterialPageRoute(builder: (_) => const SurveyRegionPage()),
                               ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: isVerified

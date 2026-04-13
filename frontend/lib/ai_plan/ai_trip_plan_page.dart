@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import '../services/api_service.dart';
 import 'ai_trip_detail_page.dart';
 import 'trip_plan_selection_page.dart';
 
@@ -17,11 +18,11 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
   final _nameController = TextEditingController();
   final _durationController = TextEditingController(text: '1');
 
-  String? _selectedBudget;
+  String? _selectedBudget;       // display label
+  String? _selectedBudgetId;     // id sent to API
 
   // Location state
   String? _selectedProvinceId;
-  String? _selectedCityId;
   String? _selectedProvince;
   String? _selectedCity;
 
@@ -32,6 +33,8 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
   bool _loadingCities = false;
   bool _isGenerating = false;
   bool _isGenerated = false;
+
+  Map<String, dynamic>? _generatedPlan;
 
   @override
   void initState() {
@@ -73,7 +76,6 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
     setState(() {
       _selectedProvinceId = id;
       _selectedProvince = name;
-      _selectedCityId = null;
       _selectedCity = null;
       _cities = [];
       _loadingCities = true;
@@ -89,9 +91,34 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
 
   void _onCityChanged(String id, String name) {
     setState(() {
-      _selectedCityId = id;
       _selectedCity = name;
     });
+  }
+
+  Future<void> _generate() async {
+    setState(() => _isGenerating = true);
+    try {
+      final plan = await ApiService.generateTripPlan(
+        province: _selectedProvince ?? '',
+        city: _selectedCity,
+        duration: int.tryParse(_durationController.text) ?? 1,
+        budgetId: _selectedBudgetId ?? 'menengah',
+      );
+      if (mounted) {
+        setState(() {
+          _generatedPlan = plan;
+          _isGenerating = false;
+          _isGenerated = true;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isGenerating = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    }
   }
 
   @override
@@ -118,9 +145,7 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
                   child: const LinearProgressIndicator(
                     minHeight: 6,
                     backgroundColor: Color(0xFFEBEBEB),
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      Color(0xFF4AA5A6),
-                    ),
+                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF4AA5A6)),
                   ),
                 ),
               ),
@@ -130,7 +155,14 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
       );
     }
 
-    if (_isGenerated) {
+    if (_isGenerated && _generatedPlan != null) {
+      final plan = _generatedPlan!;
+      final placeCount = plan['place_count'] as int? ?? 0;
+      final vibes = plan['vibes'] as String? ?? '';
+      final budgetSummary = plan['budget_summary'] as String? ?? '';
+      final places = (plan['places'] as List? ?? []).cast<Map<String, dynamic>>();
+      final coverImageUrl = places.isNotEmpty ? places[0]['image_url'] as String? : null;
+
       return Scaffold(
         backgroundColor: Colors.white,
         appBar: AppBar(
@@ -152,24 +184,15 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(24),
-                        child: Image.network(
-                          'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=800&q=80',
-                          width: double.infinity,
-                          height: 200,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              width: double.infinity,
-                              height: 200,
-                              color: Colors.grey.shade300,
-                              child: const Icon(
-                                Icons.broken_image,
-                                size: 50,
-                                color: Colors.grey,
-                              ),
-                            );
-                          },
-                        ),
+                        child: coverImageUrl != null
+                            ? Image.network(
+                                coverImageUrl,
+                                width: double.infinity,
+                                height: 200,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, e) => _coverPlaceholder(),
+                              )
+                            : _coverPlaceholder(),
                       ),
                       const SizedBox(height: 24),
                       const Text(
@@ -182,20 +205,18 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Terdapat 4 tempat yang akan kamu telusuri',
-                        style: TextStyle(
+                      Text(
+                        'Terdapat $placeCount tempat yang akan kamu telusuri',
+                        style: const TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 14,
                           color: Colors.black,
                         ),
                       ),
                       const SizedBox(height: 24),
-                      _buildInfoPill('Budget : Rp 500.000'),
+                      _buildInfoPill('Budget: $budgetSummary'),
                       const SizedBox(height: 16),
-                      _buildInfoPill(
-                        'Vibes: Garden cafe yang sangat hijau dan homey',
-                      ),
+                      _buildInfoPill('Vibes: $vibes'),
                     ],
                   ),
                 ),
@@ -210,18 +231,21 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
                           ? _nameController.text
                           : 'My Trip My Adventure';
                       final duration = _durationController.text;
-                      
+
                       globalTrips.add({
                         'name': title,
                         'duration': duration,
-                        'imageUrl': 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=800&q=80',
+                        'imageUrl': coverImageUrl ??
+                            'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=800&q=80',
+                        'places': places,
                       });
-                      
+
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => AiTripDetailPage(
+                          builder: (_) => AiTripDetailPage(
                             tripName: title,
+                            places: places,
                           ),
                         ),
                       );
@@ -252,6 +276,7 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
       );
     }
 
+    // ── Form ──────────────────────────────────────────────────────────────
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -291,14 +316,9 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
                     ),
                     const SizedBox(height: 32),
 
-                    // Nama perjalanan
-                    _buildTextField(
-                      label: 'Nama perjalanan',
-                      controller: _nameController,
-                    ),
+                    _buildTextField(label: 'Nama perjalanan', controller: _nameController),
                     const SizedBox(height: 16),
 
-                    // Provinsi
                     _buildDropdown(
                       label: 'Provinsi',
                       items: _provinces,
@@ -308,7 +328,6 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Kota
                     _buildDropdown(
                       label: 'Kota (Opsional)',
                       items: _cities,
@@ -320,7 +339,6 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Durasi
                     _buildTextField(
                       label: 'Durasi (hari)',
                       controller: _durationController,
@@ -328,28 +346,19 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Budget
                     _buildDropdown(
                       label: 'Budget (Per hari)',
                       items: [
-                        {'id': 'hemat', 'name': '💸 Hemat — < Rp100.000'},
-                        {
-                          'id': 'budget',
-                          'name': '💵 Budget — Rp100.000 – Rp300.000',
-                        },
-                        {
-                          'id': 'menengah',
-                          'name': '💳 Menengah — Rp300.000 – Rp700.000',
-                        },
-                        {
-                          'id': 'premium',
-                          'name': '💎 Premium — Rp700.000 – Rp1.500.000',
-                        },
-                        {'id': 'luxury', 'name': '🏝 Luxury — > Rp1.500.000'},
+                        {'id': 'hemat',    'name': '💸 Hemat — < Rp100.000'},
+                        {'id': 'budget',   'name': '💵 Budget — Rp100.000 – Rp300.000'},
+                        {'id': 'menengah', 'name': '💳 Menengah — Rp300.000 – Rp700.000'},
+                        {'id': 'premium',  'name': '💎 Premium — Rp700.000 – Rp1.500.000'},
+                        {'id': 'luxury',   'name': '🏝 Luxury — > Rp1.500.000'},
                       ],
                       value: _selectedBudget,
                       onChanged: (id, name) {
                         setState(() {
+                          _selectedBudgetId = id;
                           _selectedBudget = name;
                         });
                       },
@@ -360,28 +369,12 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
               ),
             ),
 
-            // Generate button at the bottom
             Padding(
               padding: const EdgeInsets.all(24.0),
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {
-                    // Start Loading
-                    setState(() {
-                      _isGenerating = true;
-                    });
-
-                    // Simulate AI Generation duration
-                    Future.delayed(const Duration(seconds: 3), () {
-                      if (mounted) {
-                        setState(() {
-                          _isGenerating = false;
-                          _isGenerated = true;
-                        });
-                      }
-                    });
-                  },
+                  onPressed: _generate,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF9CCCD0),
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -408,6 +401,18 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
     );
   }
 
+  Widget _coverPlaceholder() {
+    return Container(
+      width: double.infinity,
+      height: 200,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade300,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: const Icon(Icons.map, size: 50, color: Colors.grey),
+    );
+  }
+
   Widget _buildInfoPill(String text) {
     return Container(
       width: double.infinity,
@@ -419,11 +424,7 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
       ),
       child: Text(
         text,
-        style: const TextStyle(
-          fontFamily: 'Inter',
-          fontSize: 14,
-          color: Colors.black,
-        ),
+        style: const TextStyle(fontFamily: 'Inter', fontSize: 14, color: Colors.black),
       ),
     );
   }
@@ -444,24 +445,13 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 12,
-              color: Colors.grey,
-            ),
-          ),
+          Text(label, style: const TextStyle(fontFamily: 'Inter', fontSize: 12, color: Colors.grey)),
           TextField(
             controller: controller,
             readOnly: readOnly,
             decoration: InputDecoration(
               hintText: hintText,
-              hintStyle: const TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 14,
-                color: Colors.black,
-              ),
+              hintStyle: const TextStyle(fontFamily: 'Inter', fontSize: 14, color: Colors.black),
               border: InputBorder.none,
               isDense: true,
               contentPadding: const EdgeInsets.only(top: 4, bottom: 4),
@@ -497,24 +487,14 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 12,
-              color: Colors.grey,
-            ),
-          ),
+          Text(label, style: const TextStyle(fontFamily: 'Inter', fontSize: 12, color: Colors.grey)),
           if (loading)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 6),
               child: SizedBox(
                 width: 18,
                 height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Color(0xFF4AA5A6),
-                ),
+                child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF4AA5A6)),
               ),
             )
           else
@@ -526,17 +506,9 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
                   value: value,
                   hint: Text(
                     enabled ? 'Pilih $label' : '',
-                    style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 14,
-                      color: Colors.black54,
-                    ),
+                    style: const TextStyle(fontFamily: 'Inter', fontSize: 14, color: Colors.black54),
                   ),
-                  icon: const Icon(
-                    Icons.unfold_more,
-                    size: 20,
-                    color: Colors.black54,
-                  ),
+                  icon: const Icon(Icons.unfold_more, size: 20, color: Colors.black54),
                   style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 14,
@@ -546,22 +518,15 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
                   onChanged: enabled
                       ? (selectedName) {
                           if (selectedName == null) return;
-                          final item = items.firstWhere(
-                            (e) => e['name'] == selectedName,
-                          );
+                          final item = items.firstWhere((e) => e['name'] == selectedName);
                           onChanged!(item['id']!, item['name']!);
                         }
                       : null,
                   items: items
-                      .map(
-                        (e) => DropdownMenuItem<String>(
-                          value: e['name'],
-                          child: Text(
-                            e['name']!,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      )
+                      .map((e) => DropdownMenuItem<String>(
+                            value: e['name'],
+                            child: Text(e['name']!, overflow: TextOverflow.ellipsis),
+                          ))
                       .toList(),
                 ),
               ),

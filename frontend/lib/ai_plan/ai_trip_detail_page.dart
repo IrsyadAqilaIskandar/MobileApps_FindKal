@@ -2,39 +2,26 @@ import 'package:flutter/material.dart';
 
 class AiTripDetailPage extends StatefulWidget {
   final String tripName;
+  final List<Map<String, dynamic>> places;
 
-  const AiTripDetailPage({super.key, required this.tripName});
+  const AiTripDetailPage({
+    super.key,
+    required this.tripName,
+    required this.places,
+  });
 
   @override
   State<AiTripDetailPage> createState() => _AiTripDetailPageState();
 }
 
 class _AiTripDetailPageState extends State<AiTripDetailPage> {
-  List<Map<String, dynamic>> timelineItems = [
-    {
-      'time': '06.00 AM',
-      'title': 'Pemandangan Diatas Koja Cliff Goa Gozila',
-      'details':
-          'Tiket masuk: Rp15.000\nParkir: Rp5.000 - Rp10.000\nSewa Perahu: Rp20.000',
-      'imageUrl':
-          'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?auto=format&fit=crop&w=300&q=80',
-    },
-    {
-      'time': '11.00 AM',
-      'title': 'Telang Garden Cafe Makanan Autentik Indonesia',
-      'details':
-          'Menu Utama (Ayam Pecak): Rp30.000 - Rp45.000\nMinuman Signature Telang: Rp10.000 - Rp15.000\nTotal per orang: Rp50.000 - Rp75.000',
-      'imageUrl':
-          'https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=300&q=80',
-    },
-    {
-      'time': '03.00 PM',
-      'title': 'Broadway Alam Sutera Dari Alam ke New York Dalam 15 Menit',
-      'details': 'Parkir: Rp5.000 - Rp10.000\nCamilan: Rp25.000 - Rp50.000',
-      'imageUrl':
-          'https://images.unsplash.com/photo-1499856871958-5b9627545d1a?auto=format&fit=crop&w=300&q=80',
-    },
-  ];
+  late List<Map<String, dynamic>> timelineItems;
+
+  @override
+  void initState() {
+    super.initState();
+    timelineItems = List<Map<String, dynamic>>.from(widget.places);
+  }
 
   void _editPlan() {
     showModalBottomSheet(
@@ -182,7 +169,6 @@ class _AiTripDetailPageState extends State<AiTripDetailPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Map Placeholder
                     MapPreviewCard(items: timelineItems),
                     const SizedBox(height: 24),
                     Text(
@@ -196,7 +182,6 @@ class _AiTripDetailPageState extends State<AiTripDetailPage> {
                     ),
                     const SizedBox(height: 24),
 
-                    // Timeline Title
                     Row(
                       children: const [
                         SizedBox(width: 4),
@@ -215,15 +200,14 @@ class _AiTripDetailPageState extends State<AiTripDetailPage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Timeline Items
                     ...List.generate(timelineItems.length, (index) {
                       final item = timelineItems[index];
                       return _buildTimelineItem(
-                        time: item['time'],
-                        title: item['title'],
-                        details: item['details'],
-                        imageUrl: item['imageUrl'],
-                        isLast: false, // Dots continue to the transport section
+                        time: item['time'] ?? '',
+                        title: item['title'] ?? '',
+                        details: item['details'] ?? '',
+                        imageUrl: item['image_url'] as String?,
+                        isLast: false,
                       );
                     }),
                     _buildTransportSection(),
@@ -233,14 +217,13 @@ class _AiTripDetailPageState extends State<AiTripDetailPage> {
               ),
             ),
 
-            // Bottom Action Bar
             Container(
               padding: const EdgeInsets.all(24.0),
               decoration: BoxDecoration(
                 color: Colors.white,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha:0.05),
                     offset: const Offset(0, -4),
                     blurRadius: 10,
                   ),
@@ -251,10 +234,7 @@ class _AiTripDetailPageState extends State<AiTripDetailPage> {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {
-                        // Selesai Action - return to home (pop until first)
-                        Navigator.of(
-                          context,
-                        ).popUntil((route) => route.isFirst);
+                        Navigator.of(context).popUntil((route) => route.isFirst);
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF9CCCD0),
@@ -295,7 +275,7 @@ class _AiTripDetailPageState extends State<AiTripDetailPage> {
                           fontFamily: 'Inter',
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF9CCCD0), // Teal text
+                          color: Color(0xFF9CCCD0),
                         ),
                       ),
                     ),
@@ -313,39 +293,26 @@ class _AiTripDetailPageState extends State<AiTripDetailPage> {
     required String time,
     required String title,
     required String details,
-    required String imageUrl,
+    String? imageUrl,
     bool isLast = false,
   }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Timeline line & dots column
         Column(
           children: [
             const SizedBox(height: 4),
             const Icon(Icons.circle, size: 10, color: Color(0xFFE0E0E0)),
             if (!isLast) ...[
               const SizedBox(height: 8),
-              const Icon(Icons.circle, size: 6, color: Color(0xFFE0E0E0)),
-              const SizedBox(height: 8),
-              const Icon(Icons.circle, size: 6, color: Color(0xFFE0E0E0)),
-              const SizedBox(height: 8),
-              const Icon(Icons.circle, size: 6, color: Color(0xFFE0E0E0)),
-              const SizedBox(height: 8),
-              const Icon(Icons.circle, size: 6, color: Color(0xFFE0E0E0)),
-              const SizedBox(height: 8),
-              const Icon(Icons.circle, size: 6, color: Color(0xFFE0E0E0)),
-              const SizedBox(height: 8),
-              const Icon(Icons.circle, size: 6, color: Color(0xFFE0E0E0)),
-              const SizedBox(height: 8),
-              const Icon(Icons.circle, size: 6, color: Color(0xFFE0E0E0)),
-              const SizedBox(height: 8),
-              const Icon(Icons.circle, size: 6, color: Color(0xFFE0E0E0)),
+              ...List.generate(8, (_) => const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Icon(Icons.circle, size: 6, color: Color(0xFFE0E0E0)),
+              )),
             ],
           ],
         ),
         const SizedBox(width: 16),
-        // Card Content
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -364,7 +331,7 @@ class _AiTripDetailPageState extends State<AiTripDetailPage> {
                 margin: const EdgeInsets.only(bottom: 24),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF5F5F5), // Light grey background
+                  color: const Color(0xFFF5F5F5),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(
@@ -372,21 +339,15 @@ class _AiTripDetailPageState extends State<AiTripDetailPage> {
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: Image.network(
-                        imageUrl,
-                        width: 80,
-                        height: 80,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          width: 80,
-                          height: 80,
-                          color: Colors.grey.shade300,
-                          child: const Icon(
-                            Icons.broken_image,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ),
+                      child: imageUrl != null
+                          ? Image.network(
+                              imageUrl,
+                              width: 80,
+                              height: 80,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, e) => _imagePlaceholder(),
+                            )
+                          : _imagePlaceholder(),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -425,11 +386,22 @@ class _AiTripDetailPageState extends State<AiTripDetailPage> {
     );
   }
 
+  Widget _imagePlaceholder() {
+    return Container(
+      width: 80,
+      height: 80,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade300,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Icon(Icons.place, color: Colors.grey),
+    );
+  }
+
   Widget _buildTransportSection() {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Timeline dots continuation
         Column(
           children: [
             const SizedBox(height: 4),
@@ -459,12 +431,10 @@ class _AiTripDetailPageState extends State<AiTripDetailPage> {
               ),
               const SizedBox(height: 16),
               SizedBox(
-                height:
-                    360, // Fixed height to allow right side scrolling while left sticks
+                height: 360,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Left Side (Sticky)
                     Expanded(
                       flex: 11,
                       child: Container(
@@ -487,65 +457,29 @@ class _AiTripDetailPageState extends State<AiTripDetailPage> {
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 16),
-                            _buildTransportCard(
-                              icon: Icons.motorcycle,
-                              name: 'Motor',
-                              time: '40',
-                              isWhite: true,
-                            ),
+                            _buildTransportCard(icon: Icons.motorcycle, name: 'Motor', time: '40', isWhite: true),
                             const SizedBox(height: 12),
-                            _buildTransportCard(
-                              icon: Icons.directions_car,
-                              name: 'Mobil',
-                              time: '50',
-                              isWhite: true,
-                            ),
+                            _buildTransportCard(icon: Icons.directions_car, name: 'Mobil', time: '50', isWhite: true),
                           ],
                         ),
                       ),
                     ),
                     const SizedBox(width: 12),
-                    // Right Side (Scrollable)
                     Expanded(
                       flex: 10,
                       child: ListView(
                         padding: EdgeInsets.zero,
                         physics: const BouncingScrollPhysics(),
                         children: [
-                          _buildTransportCard(
-                            icon: Icons.directions_car,
-                            name: 'Mobil',
-                            time: '50',
-                            isWhite: false,
-                          ),
+                          _buildTransportCard(icon: Icons.directions_car, name: 'Mobil', time: '50', isWhite: false),
                           const SizedBox(height: 12),
-                          _buildTransportCard(
-                            icon: Icons.motorcycle,
-                            name: 'Motor',
-                            time: '40',
-                            isWhite: false,
-                          ),
+                          _buildTransportCard(icon: Icons.motorcycle, name: 'Motor', time: '40', isWhite: false),
                           const SizedBox(height: 12),
-                          _buildTransportCard(
-                            icon: Icons.directions_transit,
-                            name: 'Kereta',
-                            time: '35',
-                            isWhite: false,
-                          ),
+                          _buildTransportCard(icon: Icons.directions_transit, name: 'Kereta', time: '35', isWhite: false),
                           const SizedBox(height: 12),
-                          _buildTransportCard(
-                            icon: Icons.directions_bus,
-                            name: 'Bus',
-                            time: '55',
-                            isWhite: false,
-                          ),
+                          _buildTransportCard(icon: Icons.directions_bus, name: 'Bus', time: '55', isWhite: false),
                           const SizedBox(height: 12),
-                          _buildTransportCard(
-                            icon: Icons.directions_walk,
-                            name: 'Jalan kaki',
-                            time: '120',
-                            isWhite: false,
-                          ),
+                          _buildTransportCard(icon: Icons.directions_walk, name: 'Jalan kaki', time: '120', isWhite: false),
                         ],
                       ),
                     ),
@@ -653,7 +587,7 @@ class MapPreviewCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha:0.1),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -665,7 +599,6 @@ class MapPreviewCard extends StatelessWidget {
           builder: (context, constraints) {
             return Stack(
               children: [
-                // Map Background (Satellite/Realistic style)
                 Image.network(
                   'https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=800&q=80',
                   width: double.infinity,
@@ -674,59 +607,50 @@ class MapPreviewCard extends StatelessWidget {
                   errorBuilder: (context, error, stackTrace) =>
                       Container(color: Colors.grey[300]),
                 ),
-                // Subtle dark gradient overlay to improve readability
                 Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.black.withOpacity(0.4),
-                        Colors.black.withOpacity(0.2),
-                        Colors.black.withOpacity(0.5),
+                        Colors.black.withValues(alpha:0.4),
+                        Colors.black.withValues(alpha:0.2),
+                        Colors.black.withValues(alpha:0.5),
                       ],
                     ),
                   ),
                 ),
-
-                // Route Line
                 CustomPaint(
                   size: Size(constraints.maxWidth, 320),
                   painter: _RoutePainter(),
                 ),
-
-                // Place 1
                 if (items.isNotEmpty) ...[
                   _buildFloatingCard(
                     top: 16,
                     left: constraints.maxWidth * 0.05,
-                    title: items[0]['title'],
-                    imageUrl: items[0]['imageUrl'],
-                    info: items[0]['time'],
+                    title: items[0]['title'] ?? '',
+                    imageUrl: items[0]['image_url'] as String?,
+                    info: items[0]['time'] ?? '',
                   ),
                   _buildMarker(top: 86, left: constraints.maxWidth * 0.25),
                 ],
-
-                // Place 2
                 if (items.length > 1) ...[
                   _buildFloatingCard(
                     top: 110,
                     right: constraints.maxWidth * 0.05,
-                    title: items[1]['title'],
-                    imageUrl: items[1]['imageUrl'],
-                    info: items[1]['time'],
+                    title: items[1]['title'] ?? '',
+                    imageUrl: items[1]['image_url'] as String?,
+                    info: items[1]['time'] ?? '',
                   ),
                   _buildMarker(top: 136, left: constraints.maxWidth * 0.70),
                 ],
-
-                // Place 3
                 if (items.length > 2) ...[
                   _buildFloatingCard(
                     bottom: 16,
                     left: constraints.maxWidth * 0.15,
-                    title: items[2]['title'],
-                    imageUrl: items[2]['imageUrl'],
-                    info: items[2]['time'],
+                    title: items[2]['title'] ?? '',
+                    imageUrl: items[2]['image_url'] as String?,
+                    info: items[2]['time'] ?? '',
                   ),
                   _buildMarker(top: 226, left: constraints.maxWidth * 0.40),
                 ],
@@ -746,12 +670,12 @@ class MapPreviewCard extends StatelessWidget {
         width: 14,
         height: 14,
         decoration: BoxDecoration(
-          color: const Color(0xFF9CCCD0), // Soft Teal
+          color: const Color(0xFF9CCCD0),
           shape: BoxShape.circle,
           border: Border.all(color: Colors.white, width: 2.5),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withValues(alpha:0.3),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
@@ -767,7 +691,7 @@ class MapPreviewCard extends StatelessWidget {
     double? left,
     double? right,
     required String title,
-    required String imageUrl,
+    String? imageUrl,
     required String info,
   }) {
     return Positioned(
@@ -778,11 +702,11 @@ class MapPreviewCard extends StatelessWidget {
       child: Container(
         width: 150,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.95),
+          color: Colors.white.withValues(alpha:0.95),
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.15),
+              color: Colors.black.withValues(alpha:0.15),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -793,26 +717,27 @@ class MapPreviewCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(16),
-              ),
-              child: Image.network(
-                imageUrl,
-                height: 50,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  height: 50,
-                  color: Colors.grey[300],
-                  child: const Icon(Icons.image, size: 20, color: Colors.grey),
-                ),
-              ),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              child: imageUrl != null
+                  ? Image.network(
+                      imageUrl,
+                      height: 50,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, e) => Container(
+                        height: 50,
+                        color: Colors.grey[300],
+                        child: const Icon(Icons.place, size: 20, color: Colors.grey),
+                      ),
+                    )
+                  : Container(
+                      height: 50,
+                      color: Colors.grey[300],
+                      child: const Icon(Icons.place, size: 20, color: Colors.grey),
+                    ),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 10.0,
-                vertical: 8.0,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 8.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -851,32 +776,15 @@ class _RoutePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF9CCCD0)
-          .withOpacity(0.9) // Soft Teal
+      ..color = const Color(0xFF9CCCD0).withValues(alpha:0.9)
       ..strokeWidth = 3.5
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
     final path = Path();
-    // Marker 1 center
     path.moveTo(size.width * 0.25 + 7, 86 + 7);
-
-    // Curve down to Marker 2
-    path.quadraticBezierTo(
-      size.width * 0.5,
-      95,
-      size.width * 0.70 + 7,
-      136 + 7,
-    );
-
-    // Curve down and left to Marker 3
-    path.quadraticBezierTo(
-      size.width * 0.6,
-      200,
-      size.width * 0.40 + 7,
-      226 + 7,
-    );
-
+    path.quadraticBezierTo(size.width * 0.5, 95, size.width * 0.70 + 7, 136 + 7);
+    path.quadraticBezierTo(size.width * 0.6, 200, size.width * 0.40 + 7, 226 + 7);
     canvas.drawPath(path, paint);
   }
 

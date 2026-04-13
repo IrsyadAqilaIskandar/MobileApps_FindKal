@@ -2,6 +2,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // import for Clipboard
 import 'package:url_launcher/url_launcher.dart'; // import for url_launcher
+import 'package:share_plus/share_plus.dart';
 import '../models/unggahan.dart';
 import 'search_overlay_page.dart';
 import '../unggahan/unggahan_detail_page.dart';
@@ -146,17 +147,20 @@ class _PlaceDetailPageState extends State<PlaceDetailPage> with SingleTickerProv
                 ),
               );
             }),
-            _buildActionItem(Icons.share_outlined, "Share", false, () async {
-              // Prepares a dummy specific link to the place on the FindKal app
-              final String findkalLink = 'https://findkal.id/place/${Uri.encodeComponent(widget.place.placeName.toLowerCase().replaceAll(' ', '-'))}';
-              await Clipboard.setData(ClipboardData(text: findkalLink));
-              
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).clearSnackBars();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Tautan $findkalLink disalin ke papan klip!'), duration: const Duration(seconds: 2)),
-                );
-              }
+            _buildActionItem(Icons.share_outlined, "Share", false, () {
+              final place = widget.place;
+              final rep = place.unggahans.isNotEmpty ? place.unggahans.first : null;
+              final address = rep?.address ?? '-';
+              final budget = rep?.budget ?? '-';
+              final rating = place.averageRating.toStringAsFixed(1);
+
+              final text = '📍 ${place.placeName}\n'
+                  '⭐ Rating: $rating/5 (${place.postCount} ulasan)\n'
+                  '📌 Alamat: $address\n'
+                  '💰 Budget: $budget per orang\n\n'
+                  'Ditemukan di FindKal';
+
+              SharePlus.instance.share(ShareParams(text: text));
             }),
             _buildActionItem(Icons.public, "Website", false, () async {
               final Uri url = Uri.parse(targetWebsite);

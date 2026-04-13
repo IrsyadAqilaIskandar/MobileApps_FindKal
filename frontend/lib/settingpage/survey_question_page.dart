@@ -3,7 +3,8 @@ import '../services/api_service.dart';
 import 'survey_loading_page.dart';
 
 class SurveyQuestionPage extends StatefulWidget {
-  const SurveyQuestionPage({super.key});
+  final String region;
+  const SurveyQuestionPage({super.key, required this.region});
 
   @override
   State<SurveyQuestionPage> createState() => _SurveyQuestionPageState();
@@ -62,7 +63,7 @@ class _SurveyQuestionPageState extends State<SurveyQuestionPage> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => SurveyLoadingPage(answers: _answers),
+          builder: (_) => SurveyLoadingPage(answers: _answers, region: widget.region),
         ),
       );
     }

@@ -364,13 +364,14 @@ class ApiService {
   static Future<Map<String, dynamic>> submitSurveyAnswers({
     required int userId,
     required List<Map<String, dynamic>> answers,
+    String region = '',
   }) async {
     try {
       final response = await http
           .post(
             Uri.parse('$_baseUrl/survey/submit/'),
             headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'user_id': userId, 'answers': answers}),
+            body: jsonEncode({'user_id': userId, 'answers': answers, 'region': region}),
           )
           .timeout(const Duration(seconds: 15));
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -379,6 +380,39 @@ class ApiService {
       // 403 = locked out
       final body = jsonDecode(response.body) as Map<String, dynamic>;
       throw ApiException(body['error'] ?? 'Gagal mengirim jawaban.');
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException('Tidak dapat terhubung ke server: $e');
+    }
+  }
+
+  /// Generate a rule-based trip plan from FindKal data.
+  /// Returns { place_count, vibes, budget_summary, places: [{time, title, details, image_url}] }
+  static Future<Map<String, dynamic>> generateTripPlan({
+    required String province,
+    String? city,
+    required int duration,
+    required String budgetId,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/ai/trip-plan/'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'province': province,
+              'city': city ?? '',
+              'duration': duration,
+              'budget_id': budgetId,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      throw ApiException(body['error'] ?? 'Gagal membuat rencana perjalanan.');
     } on ApiException {
       rethrow;
     } catch (e) {

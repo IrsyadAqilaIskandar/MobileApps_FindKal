@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'ai_trip_detail_page.dart';
 import 'ai_trip_plan_page.dart';
 
 List<Map<String, dynamic>> globalTrips = [];
@@ -65,7 +66,7 @@ class _TripPlanSelectionPageState extends State<TripPlanSelectionPage> {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 10,
                         offset: const Offset(0, 5),
                       ),
@@ -74,7 +75,7 @@ class _TripPlanSelectionPageState extends State<TripPlanSelectionPage> {
                   child: Container(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(24),
-                      color: Colors.black.withOpacity(0.4),
+                      color: Colors.black.withValues(alpha: 0.4),
                     ),
                     child: const Center(
                       child: Text(
@@ -104,7 +105,6 @@ class _TripPlanSelectionPageState extends State<TripPlanSelectionPage> {
               ),
               const SizedBox(height: 16),
 
-              // Dummy "Perjalananmu" List Item
               if (globalTrips.isEmpty)
                 const Padding(
                   padding: EdgeInsets.only(top: 20.0),
@@ -117,10 +117,25 @@ class _TripPlanSelectionPageState extends State<TripPlanSelectionPage> {
                 )
               else
                 ...globalTrips.map(
-                  (trip) => _buildTripCard(
-                    trip['name'],
-                    trip['duration'],
-                    trip['imageUrl'],
+                  (trip) => GestureDetector(
+                    onTap: () {
+                      final places = (trip['places'] as List? ?? [])
+                          .cast<Map<String, dynamic>>();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => AiTripDetailPage(
+                            tripName: trip['name'] as String,
+                            places: places,
+                          ),
+                        ),
+                      );
+                    },
+                    child: _buildTripCard(
+                      trip['name'] as String,
+                      trip['duration'] as String,
+                      trip['imageUrl'] as String,
+                    ),
                   ),
                 ),
               const SizedBox(height: 32),
@@ -140,7 +155,7 @@ class _TripPlanSelectionPageState extends State<TripPlanSelectionPage> {
         border: Border.all(color: Colors.grey.shade300),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
@@ -149,21 +164,17 @@ class _TripPlanSelectionPageState extends State<TripPlanSelectionPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Image
           Container(
             height: 140,
             width: double.infinity,
             decoration: BoxDecoration(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(24),
-              ),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
               image: DecorationImage(
                 image: NetworkImage(imageUrl),
                 fit: BoxFit.cover,
               ),
             ),
           ),
-          // Details
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -190,14 +201,9 @@ class _TripPlanSelectionPageState extends State<TripPlanSelectionPage> {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: const Color(
-                          0xFFF9E7B3,
-                        ), // Warning/Orange-ish background
+                        color: const Color(0xFFF9E7B3),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
