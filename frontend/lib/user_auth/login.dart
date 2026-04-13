@@ -18,10 +18,13 @@ class _LoginPageState extends State<LoginPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: SingleChildScrollView(
         child: Column(
-        children: [
-          // Top Curved Header Section
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    // Top Curved Header Section
           Stack(
             children: [
               ClipPath(
@@ -230,32 +233,37 @@ class _LoginPageState extends State<LoginPage> {
           ),
 
           const SizedBox(height: 40),
-
-          // Bottom Link
-          Center(
-            child: InkWell(
-              onTap: () {
-                Navigator.pushNamed(context, '/register');
-              },
-              hoverColor: Colors.transparent,
-              highlightColor: Colors.transparent,
-              splashColor: Colors.transparent,
-              focusColor: Colors.transparent,
-              child: const Text(
-                "Belum punya akun? Daftar sekarang!",
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 13,
-                  color: Color(0xFF4AA5A6),
-                  decoration: TextDecoration.underline,
-                  decorationColor: Color(0xFF4AA5A6),
+                  ],
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 50),
-        ],
-        ),
+
+            // Bottom Link
+            Padding(
+              padding: const EdgeInsets.only(bottom: 30, top: 10),
+              child: Center(
+                child: InkWell(
+                  onTap: () {
+                    Navigator.pushNamed(context, '/register');
+                  },
+                  hoverColor: Colors.transparent,
+                  highlightColor: Colors.transparent,
+                  splashColor: Colors.transparent,
+                  focusColor: Colors.transparent,
+                  child: const Text(
+                    "Belum punya akun? Daftar sekarang!",
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 13,
+                      color: Color(0xFF4AA5A6),
+                      decoration: TextDecoration.underline,
+                      decorationColor: Color(0xFF4AA5A6),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
