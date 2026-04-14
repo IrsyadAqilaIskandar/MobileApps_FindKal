@@ -1,14 +1,22 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:http/io_client.dart';
 import 'package:http/http.dart' as http;
-
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 // Toggle this when switching between emulator and physical device
-const bool _usePhysicalDevice = false;
+
 
 String get _baseUrl {
   if (kIsWeb) return 'http://localhost:8000/api';
-  if (_usePhysicalDevice) return 'http://192.168.18.15:8000/api';
-  return 'http://10.0.2.2:8000/api'; // Android emulator
+  return 'http://${dotenv.env['ipaddress']}:8000/api';
+}
+
+/// Creates an http client with a 10-second socket connection timeout.
+/// This prevents Android from hanging indefinitely on unreachable local IPs.
+http.Client _makeClient() {
+  final inner = HttpClient()..connectionTimeout = const Duration(seconds: 10);
+  return IOClient(inner);
 }
 
 class ApiException implements Exception {
@@ -284,11 +292,18 @@ class ApiService {
   }
 
   /// Fetch all unggahan (newest first)
-  static Future<List<Map<String, dynamic>>> fetchUnggahans() async {
+  static Future<List<Map<String, dynamic>>> fetchUnggahans({
+    double? lat,
+    double? lng,
+  }) async {
+    final client = _makeClient();
     try {
-      final response = await http
-          .get(Uri.parse('$_baseUrl/unggahan/'))
-          .timeout(const Duration(seconds: 15));
+      final uri = Uri.parse('$_baseUrl/unggahan/').replace(
+        queryParameters: (lat != null && lng != null)
+            ? {'lat': lat.toString(), 'lng': lng.toString()}
+            : null,
+      );
+      final response = await client.get(uri).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final list = jsonDecode(response.body) as List;
@@ -299,6 +314,8 @@ class ApiService {
       rethrow;
     } catch (e) {
       throw ApiException('Tidak dapat terhubung ke server: $e');
+    } finally {
+      client.close();
     }
   }
 
@@ -334,6 +351,140 @@ class ApiService {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
         throw ApiException(body['error'] ?? 'Gagal menyimpan markah.');
       }
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException('Tidak dapat terhubung ke server: $e');
+    }
+  }
+
+  /// Fetch 5 survey questions from the backend
+  static Future<List<Map<String, dynamic>>> fetchSurveyQuestions() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$_baseUrl/survey/questions/'))
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) {
+        final list = jsonDecode(response.body) as List;
+        return list.cast<Map<String, dynamic>>();
+      }
+      throw ApiException('Gagal memuat pertanyaan.');
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException('Tidak dapat terhubung ke server: $e');
+    }
+  }
+
+  /// Submit survey answers. Returns result map with keys:
+  /// passed, score, attempts_remaining?, locked_until?, already_verified?
+  static Future<Map<String, dynamic>> submitSurveyAnswers({
+    required int userId,
+    required List<Map<String, dynamic>> answers,
+    String region = '',
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/survey/submit/'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'user_id': userId, 'answers': answers, 'region': region}),
+          )
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      // 403 = locked out
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      throw ApiException(body['error'] ?? 'Gagal mengirim jawaban.');
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException('Tidak dapat terhubung ke server: $e');
+    }
+  }
+
+  /// Generate a rule-based trip plan from FindKal data.
+  /// Returns { place_count, vibes, budget_summary, places: [{time, title, details, image_url}] }
+  static Future<Map<String, dynamic>> generateTripPlan({
+    required String province,
+    String? city,
+    required int duration,
+    required String budgetId,
+    List<String> themes = const [],
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/ai/trip-plan/'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'province': province,
+              'city': city ?? '',
+              'duration': duration,
+              'budget_id': budgetId,
+              'themes': themes,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      throw ApiException(body['error'] ?? 'Gagal membuat rencana perjalanan.');
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException('Tidak dapat terhubung ke server: $e');
+    }
+  }
+
+  /// Save a trip plan to the database
+  static Future<int> saveTripPlan({
+    required int userId,
+    required String name,
+    required String duration,
+    required String imageUrl,
+    required List<Map<String, dynamic>> places,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/ai/saved-trips/'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'user_id': userId,
+              'name': name,
+              'duration': duration,
+              'image_url': imageUrl,
+              'places': places,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 201) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        return body['id'] as int;
+      }
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      throw ApiException(body['error'] ?? 'Gagal menyimpan rencana perjalanan.');
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException('Tidak dapat terhubung ke server: $e');
+    }
+  }
+
+  /// Fetch all saved trip plans for a user
+  static Future<List<Map<String, dynamic>>> fetchTripPlans(int userId) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$_baseUrl/ai/saved-trips/?user_id=$userId'))
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) {
+        final list = jsonDecode(response.body) as List;
+        return list.cast<Map<String, dynamic>>();
+      }
+      throw ApiException('Gagal memuat rencana perjalanan.');
     } on ApiException {
       rethrow;
     } catch (e) {

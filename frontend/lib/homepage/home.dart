@@ -12,6 +12,7 @@ import '../../models/unggahan.dart';
 import '../unggahan/unggahan_detail_page.dart';
 import '../../services/api_service.dart';
 import '../ai_plan/trip_plan_selection_page.dart';
+import '../settingpage/survey_intro_page.dart';
 
 class HomePage extends StatefulWidget {
   final int initialIndex;
@@ -32,15 +33,18 @@ class _HomePageState extends State<HomePage> {
   final MapController _mapController = MapController();
   static const _defaultLocation = LatLng(-6.302640076739822, 106.63938340127805);
   LatLng? _userLocation;
-  bool _locating = false;
+  bool _locating = true; // true until GPS position (or denial) is resolved
+
+  // Location permission state
+  bool _locationGranted = false;
+  bool _locationPermanentlyDenied = false;
 
   @override
   void initState() {
     super.initState();
     _selectedIndex = widget.initialIndex;
-    _requestLocationAndMove();
-    _fetchUnggahans();
-    
+    _initLocation();
+
     if (widget.pendingUpload != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _handlePendingUpload();
@@ -89,7 +93,11 @@ class _HomePageState extends State<HomePage> {
         ),
       );
       // Refresh list kalau ada
-      _fetchUnggahans();
+      final loc = _userLocation;
+      _fetchUnggahans(
+        _locationGranted && loc != null ? loc.latitude : null,
+        _locationGranted && loc != null ? loc.longitude : null,
+      );
     } catch (e) {
       scaffoldMessenger.hideCurrentSnackBar();
       scaffoldMessenger.showSnackBar(
@@ -105,16 +113,82 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _fetchUnggahans() async {
+  /// Request location permission, get GPS fix, then fetch nearby places.
+  Future<void> _initLocation() async {
+    LocationPermission permission = await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      if (mounted) {
+        setState(() {
+          _locationPermanentlyDenied = true;
+          _locationGranted = false;
+          _locating = false;
+          _userLocation = _defaultLocation;
+        });
+        _mapController.move(_defaultLocation, 15);
+      }
+      await _fetchUnggahans(null, null);
+      return;
+    }
+
+    if (permission == LocationPermission.denied) {
+      // User tapped "Don't allow" on the dialog
+      if (mounted) {
+        setState(() {
+          _locationGranted = false;
+          _locating = false;
+          _userLocation = _defaultLocation;
+        });
+        _mapController.move(_defaultLocation, 15);
+      }
+      await _fetchUnggahans(null, null);
+      return;
+    }
+
+    // Permission granted — get actual position
+    try {
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+      if (mounted) {
+        setState(() {
+          _locationGranted = true;
+          _locating = false;
+          _userLocation = LatLng(pos.latitude, pos.longitude);
+        });
+        _mapController.move(_userLocation!, 15);
+      }
+      await _fetchUnggahans(pos.latitude, pos.longitude);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _locationGranted = true;
+          _locating = false;
+          _userLocation = _defaultLocation;
+        });
+        _mapController.move(_defaultLocation, 15);
+      }
+      await _fetchUnggahans(null, null);
+    }
+  }
+
+  Future<void> _fetchUnggahans(double? lat, double? lng) async {
     try {
       final user = AuthState.currentUser ?? {};
       final currentUserUsername = user['username'] ?? '';
-      
-      final data = await ApiService.fetchUnggahans();
+
+      final data = await ApiService.fetchUnggahans(lat: lat, lng: lng)
+          .timeout(const Duration(seconds: 20));
       if (mounted) {
         setState(() {
           final allUnggahans = data.map((j) => Unggahan.fromJson(j)).toList();
-          _unggahans = allUnggahans.where((u) => u.usernameHandle.replaceAll('@', '') != currentUserUsername).toList();
+          _unggahans = allUnggahans
+              .where((u) => u.usernameHandle.replaceAll('@', '') != currentUserUsername)
+              .toList();
           _loadingFeed = false;
         });
       }
@@ -123,26 +197,64 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  void _showVerificationRequiredSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 36),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+            ),
+            const SizedBox(height: 24),
+            const Icon(Icons.lock_outline_rounded, size: 48, color: Color(0xFF4AA5A6)),
+            const SizedBox(height: 16),
+            const Text(
+              'Verifikasi Warga Lokal Diperlukan',
+              style: TextStyle(fontFamily: 'Inter', fontSize: 17, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Hanya warga lokal terverifikasi yang dapat mengunggah postingan. Selesaikan survei singkat untuk mendapatkan akses.',
+              style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: Colors.grey.shade600, height: 1.5),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const SurveyIntroPage()));
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4AA5A6),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                  elevation: 0,
+                ),
+                child: const Text('Mulai Verifikasi', style: TextStyle(fontFamily: 'Inter', fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _openSearch() {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const SearchOverlayPage()),
     );
-  }
-
-  Future<void> _requestLocationAndMove() async {
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
-
-    if (mounted) {
-      setState(() {
-        _locating = false;
-        _userLocation = _defaultLocation;
-      });
-      _mapController.move(_defaultLocation, 15);
-    }
   }
 
   void _onItemTapped(int index) async {
@@ -211,7 +323,13 @@ class _HomePageState extends State<HomePage> {
     return Stack(
       children: [
         RefreshIndicator(
-          onRefresh: _fetchUnggahans,
+          onRefresh: () {
+            final loc = _userLocation;
+            return _fetchUnggahans(
+              _locationGranted && loc != null ? loc.latitude : null,
+              _locationGranted && loc != null ? loc.longitude : null,
+            );
+          },
           color: const Color(0xFF4AA5A6),
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -389,11 +507,13 @@ class _HomePageState extends State<HomePage> {
                   const SizedBox(height: 30),
 
                   // Eksplorasi terdekat
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16.0),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: Text(
-                      "Eksplorasi terdekat",
-                      style: TextStyle(
+                      _locationGranted
+                          ? "Eksplorasi terdekat (15 km)"
+                          : "Eksplorasi tempat",
+                      style: const TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -401,7 +521,40 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 8),
+
+                  // Location denied banner
+                  if (!_locationGranted)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.orange.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.location_off_outlined, size: 16, color: Colors.orange.shade700),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _locationPermanentlyDenied
+                                    ? 'Izin lokasi ditolak. Aktifkan di Pengaturan untuk melihat tempat terdekat.'
+                                    : 'Aktifkan lokasi untuk melihat tempat dalam radius 15 km.',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 11,
+                                  color: Colors.orange.shade700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 8),
 
                   // Horizontal Scrollable Cards
                   SizedBox(
@@ -409,7 +562,18 @@ class _HomePageState extends State<HomePage> {
                     child: _loadingFeed
                         ? const Center(child: CircularProgressIndicator(color: Color(0xFF4AA5A6)))
                         : _unggahans.isEmpty
-                            ? const Center(child: Text('Belum ada unggahan.', style: TextStyle(fontFamily: 'Inter', color: Colors.grey)))
+                            ? Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                                  child: Text(
+                                    _locationGranted
+                                        ? 'Belum ada rekomendasi di area sekitarmu saat ini.'
+                                        : 'Belum ada unggahan.',
+                                    style: const TextStyle(fontFamily: 'Inter', color: Colors.grey),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              )
                             : ListView.builder(
                                 scrollDirection: Axis.horizontal,
                                 padding: const EdgeInsets.only(left: 16, right: 8),
@@ -433,6 +597,10 @@ class _HomePageState extends State<HomePage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _buildCircularButton(icon: Icons.add, size: 28, onTap: () {
+                    if (!AuthState.isWargaLokal) {
+                      _showVerificationRequiredSheet();
+                      return;
+                    }
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (context) => const BuatUnggahanPage()),

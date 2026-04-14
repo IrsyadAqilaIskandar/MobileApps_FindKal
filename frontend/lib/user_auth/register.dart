@@ -46,6 +46,20 @@ class _RegisterPageState extends State<RegisterPage> {
       return;
     }
 
+    final emailRegex = RegExp(r'^[\w\.\+\-]+@[\w\-]+(\.\w{2,})+$');
+    if (!emailRegex.hasMatch(email)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Format email tidak valid. Pastikan ada tanda "@".', style: TextStyle(fontFamily: 'Inter')),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          margin: const EdgeInsets.only(bottom: 20, left: 24, right: 24),
+        ),
+      );
+      return;
+    }
+
     setState(() => _sendingOtp = true);
     try {
       await ApiService.sendVerificationEmail(email);
@@ -158,7 +172,7 @@ class _RegisterPageState extends State<RegisterPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -376,7 +390,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
               ),
 
-              const Spacer(),
+              const SizedBox(height: 32),
 
               // Button Selanjutnya — only enabled after email is verified
               SizedBox(

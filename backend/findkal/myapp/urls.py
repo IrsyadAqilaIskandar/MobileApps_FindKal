@@ -13,6 +13,10 @@ from .views import (
     UnggahanDetailView,
     BookmarkListCreateView,
     BookmarkDeleteView,
+    SurveyQuestionsView,
+    SurveySubmitView,
+    TripPlanView,
+    SavedTripPlanView,
 )
 
 urlpatterns = [
@@ -29,4 +33,8 @@ urlpatterns = [
     path("unggahan/<int:pk>/", UnggahanDetailView.as_view(), name="unggahan-detail"),
     path("bookmarks/", BookmarkListCreateView.as_view(), name="bookmark-list-create"),
     path("bookmarks/<int:unggahan_id>/", BookmarkDeleteView.as_view(), name="bookmark-delete"),
+    path("survey/questions/", SurveyQuestionsView.as_view(), name="survey-questions"),
+    path("survey/submit/", SurveySubmitView.as_view(), name="survey-submit"),
+    path("ai/trip-plan/", TripPlanView.as_view(), name="ai-trip-plan"),
+    path("ai/saved-trips/", SavedTripPlanView.as_view(), name="saved-trip-plans"),
 ]

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/auth_state.dart';
+import '../services/api_service.dart';
 import 'unggahan_preview_page.dart';
 
 class BuatUnggahanPage extends StatefulWidget {
@@ -21,8 +22,46 @@ class _BuatUnggahanPageState extends State<BuatUnggahanPage> {
   final TextEditingController _addressController = TextEditingController();
   final TextEditingController _reviewController = TextEditingController();
 
+  List<String> _allPlaceNames = [];
+  List<String> _namaSuggestions = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController.addListener(_onNameChanged);
+    _loadPlaceNames();
+  }
+
+  Future<void> _loadPlaceNames() async {
+    try {
+      final data = await ApiService.fetchUnggahans();
+      final names = data
+          .map((j) => j['placeName'] as String? ?? '')
+          .where((n) => n.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
+      if (mounted) setState(() => _allPlaceNames = names);
+    } catch (_) {}
+  }
+
+  void _onNameChanged() {
+    final q = _nameController.text.trim().toLowerCase();
+    setState(() {
+      if (q.isEmpty) {
+        _namaSuggestions = [];
+      } else {
+        _namaSuggestions = _allPlaceNames
+            .where((n) => n.toLowerCase().contains(q))
+            .take(5)
+            .toList();
+      }
+    });
+  }
+
   @override
   void dispose() {
+    _nameController.removeListener(_onNameChanged);
     _nameController.dispose();
     _addressController.dispose();
     _reviewController.dispose();
@@ -235,6 +274,62 @@ class _BuatUnggahanPageState extends State<BuatUnggahanPage> {
             const Text("Nama tempat", style: TextStyle(fontFamily: 'Inter', fontSize: 13)),
             const SizedBox(height: 8),
             _buildTextField(controller: _nameController),
+            if (_namaSuggestions.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(top: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade300),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: _namaSuggestions.asMap().entries.map((entry) {
+                    final i = entry.key;
+                    final name = entry.value;
+                    return InkWell(
+                      onTap: () {
+                        _nameController.text = name;
+                        _nameController.selection = TextSelection.fromPosition(
+                          TextPosition(offset: name.length),
+                        );
+                        setState(() => _namaSuggestions = []);
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        decoration: BoxDecoration(
+                          border: i < _namaSuggestions.length - 1
+                              ? Border(bottom: BorderSide(color: Colors.grey.shade100))
+                              : null,
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.place_outlined, size: 16, color: Color(0xFF4AA5A6)),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                name,
+                                style: const TextStyle(fontFamily: 'Inter', fontSize: 13),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
             const SizedBox(height: 16),
 
             const Text("Alamat", style: TextStyle(fontFamily: 'Inter', fontSize: 13)),

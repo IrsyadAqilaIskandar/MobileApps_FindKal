@@ -433,6 +433,23 @@ class _BookmarkButtonState extends State<BookmarkButton> {
   bool _loading = false;
 
   @override
+  void initState() {
+    super.initState();
+    _checkBookmarkStatus();
+  }
+
+  Future<void> _checkBookmarkStatus() async {
+    final userId = AuthState.currentUser?['id'];
+    final unggahanId = widget.unggahan.id;
+    if (userId == null || unggahanId == null) return;
+    try {
+      final data = await ApiService.fetchBookmarks(userId as int);
+      final ids = data.map((j) => j['id'] as int?).toSet();
+      if (mounted) setState(() => isBookmarked = ids.contains(unggahanId));
+    } catch (_) {}
+  }
+
+  @override
   Widget build(BuildContext context) {
     return IconButton(
       icon: _loading

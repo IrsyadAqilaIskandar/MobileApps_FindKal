@@ -46,6 +46,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     bio = models.TextField(blank=True, default='')
     profile_photo = models.ImageField(upload_to='profile_photos/', blank=True, null=True)
+    warga_lokal_region = models.CharField(max_length=100, blank=True, default='')
 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
@@ -179,6 +180,8 @@ class Unggahan(models.Model):
     ulasan      = models.TextField()
     rating      = models.PositiveSmallIntegerField()  # 1–5
     budget      = models.CharField(max_length=30, choices=BUDGET_CHOICES)
+    latitude    = models.FloatField(null=True, blank=True)
+    longitude   = models.FloatField(null=True, blank=True)
     created_at  = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -211,3 +214,49 @@ class Bookmark(models.Model):
 
     def __str__(self):
         return f"{self.user.username} → {self.unggahan.nama_tempat}"
+
+
+class SavedTripPlan(models.Model):
+    user       = models.ForeignKey(User, on_delete=models.CASCADE, related_name="trip_plans")
+    name       = models.CharField(max_length=200)
+    duration   = models.CharField(max_length=20)
+    image_url  = models.TextField(blank=True)
+    places     = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.name} by {self.user.username}"
+
+
+SURVEY_MAX_ATTEMPTS = 3
+SURVEY_LOCKOUT_DAYS = 3
+
+
+class SurveyQuestion(models.Model):
+    question_text = models.CharField(max_length=500)
+    option_a      = models.CharField(max_length=200)
+    option_b      = models.CharField(max_length=200)
+    option_c      = models.CharField(max_length=200)
+    option_d      = models.CharField(max_length=200)
+    correct_index = models.IntegerField()   # 0=A, 1=B, 2=C, 3=D
+    area_tag      = models.CharField(max_length=100, blank=True)
+    is_demo       = models.BooleanField(default=False)  # always included in demo survey
+
+    def __str__(self):
+        return self.question_text[:60]
+
+
+class SurveyAttempt(models.Model):
+    user            = models.OneToOneField(User, on_delete=models.CASCADE, related_name="survey_attempt")
+    attempts_used   = models.IntegerField(default=0)
+    last_attempt_at = models.DateTimeField(null=True, blank=True)
+    locked_until    = models.DateTimeField(null=True, blank=True)
+
+    def is_locked(self):
+        return self.locked_until is not None and timezone.now() < self.locked_until
+
+    def __str__(self):
+        return f"SurveyAttempt({self.user.username}, used={self.attempts_used})"

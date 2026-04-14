@@ -1,8 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'ai_trip_detail_page.dart';
-import 'trip_plan_selection_page.dart';
 import 'ai_trip_theme_selection_page.dart';
 
 const String _apiBase = 'https://api-regional-indonesia.vercel.app/api';
@@ -18,11 +16,11 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
   final _nameController = TextEditingController();
   final _durationController = TextEditingController(text: '1');
 
-  String? _selectedBudget;
+  String? _selectedBudget;       // display label
+  String? _selectedBudgetId;     // id sent to API
 
   // Location state
   String? _selectedProvinceId;
-  String? _selectedCityId;
   String? _selectedProvince;
   String? _selectedCity;
 
@@ -31,8 +29,6 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
 
   bool _loadingProvinces = false;
   bool _loadingCities = false;
-  bool _isGenerating = false;
-  bool _isGenerated = false;
 
   @override
   void initState() {
@@ -74,7 +70,6 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
     setState(() {
       _selectedProvinceId = id;
       _selectedProvince = name;
-      _selectedCityId = null;
       _selectedCity = null;
       _cities = [];
       _loadingCities = true;
@@ -90,169 +85,14 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
 
   void _onCityChanged(String id, String name) {
     setState(() {
-      _selectedCityId = id;
       _selectedCity = name;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isGenerating) {
-      return Scaffold(
-        backgroundColor: Colors.white,
-        body: SafeArea(
-          child: Column(
-            children: [
-              Expanded(
-                child: Center(
-                  child: Image.asset('assets/images/location.png', width: 150),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(
-                  bottom: 64.0,
-                  left: 64.0,
-                  right: 64.0,
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: const LinearProgressIndicator(
-                    minHeight: 6,
-                    backgroundColor: Color(0xFFEBEBEB),
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      Color(0xFF4AA5A6),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
 
-    if (_isGenerated) {
-      return Scaffold(
-        backgroundColor: Colors.white,
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios, color: Color(0xFF4AA5A6)),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ),
-        body: SafeArea(
-          child: Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(24),
-                        child: Image.network(
-                          'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=800&q=80',
-                          width: double.infinity,
-                          height: 200,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              width: double.infinity,
-                              height: 200,
-                              color: Colors.grey.shade300,
-                              child: const Icon(
-                                Icons.broken_image,
-                                size: 50,
-                                color: Colors.grey,
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      const Text(
-                        'Perjalananmu Sudah Siap!',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF4AA5A6),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Terdapat 4 tempat yang akan kamu telusuri',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 14,
-                          color: Colors.black,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      _buildInfoPill('Budget : Rp 500.000'),
-                      const SizedBox(height: 16),
-                      _buildInfoPill(
-                        'Vibes: Garden cafe yang sangat hijau dan homey',
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      final title = _nameController.text.isNotEmpty
-                          ? _nameController.text
-                          : 'My Trip My Adventure';
-                      final duration = _durationController.text;
-                      
-                      globalTrips.add({
-                        'name': title,
-                        'duration': duration,
-                        'imageUrl': 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=800&q=80',
-                      });
-                      
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => AiTripDetailPage(
-                            tripName: title,
-                          ),
-                        ),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF9CCCD0),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: const Text(
-                      'Lihat detail perjalananmu',
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
+    // ── Form ──────────────────────────────────────────────────────────────
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -292,14 +132,9 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
                     ),
                     const SizedBox(height: 32),
 
-                    // Nama perjalanan
-                    _buildTextField(
-                      label: 'Nama perjalanan',
-                      controller: _nameController,
-                    ),
+                    _buildTextField(label: 'Nama perjalanan', controller: _nameController),
                     const SizedBox(height: 16),
 
-                    // Provinsi
                     _buildDropdown(
                       label: 'Provinsi',
                       items: _provinces,
@@ -309,7 +144,6 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Kota
                     _buildDropdown(
                       label: 'Kota (Opsional)',
                       items: _cities,
@@ -321,7 +155,6 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Durasi
                     _buildTextField(
                       label: 'Durasi (hari)',
                       controller: _durationController,
@@ -329,28 +162,19 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Budget
                     _buildDropdown(
                       label: 'Budget (Per hari)',
                       items: [
-                        {'id': 'hemat', 'name': '💸 Hemat — < Rp100.000'},
-                        {
-                          'id': 'budget',
-                          'name': '💵 Budget — Rp100.000 – Rp300.000',
-                        },
-                        {
-                          'id': 'menengah',
-                          'name': '💳 Menengah — Rp300.000 – Rp700.000',
-                        },
-                        {
-                          'id': 'premium',
-                          'name': '💎 Premium — Rp700.000 – Rp1.500.000',
-                        },
-                        {'id': 'luxury', 'name': '🏝 Luxury — > Rp1.500.000'},
+                        {'id': 'hemat',    'name': '💸 Hemat — < Rp100.000'},
+                        {'id': 'budget',   'name': '💵 Budget — Rp100.000 – Rp300.000'},
+                        {'id': 'menengah', 'name': '💳 Menengah — Rp300.000 – Rp700.000'},
+                        {'id': 'premium',  'name': '💎 Premium — Rp700.000 – Rp1.500.000'},
+                        {'id': 'luxury',   'name': '🏝 Luxury — > Rp1.500.000'},
                       ],
                       value: _selectedBudget,
                       onChanged: (id, name) {
                         setState(() {
+                          _selectedBudgetId = id;
                           _selectedBudget = name;
                         });
                       },
@@ -361,7 +185,6 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
               ),
             ),
 
-            // Generate button at the bottom
             Padding(
               padding: const EdgeInsets.all(24.0),
               child: SizedBox(
@@ -377,6 +200,7 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
                           province: _selectedProvince,
                           city: _selectedCity,
                           budget: _selectedBudget,
+                          budgetId: _selectedBudgetId,
                         ),
                       ),
                     );
@@ -407,26 +231,6 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
     );
   }
 
-  Widget _buildInfoPill(String text) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFF4AA5A6)),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontFamily: 'Inter',
-          fontSize: 14,
-          color: Colors.black,
-        ),
-      ),
-    );
-  }
-
   Widget _buildTextField({
     required String label,
     required TextEditingController controller,
@@ -443,24 +247,13 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 12,
-              color: Colors.grey,
-            ),
-          ),
+          Text(label, style: const TextStyle(fontFamily: 'Inter', fontSize: 12, color: Colors.grey)),
           TextField(
             controller: controller,
             readOnly: readOnly,
             decoration: InputDecoration(
               hintText: hintText,
-              hintStyle: const TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 14,
-                color: Colors.black,
-              ),
+              hintStyle: const TextStyle(fontFamily: 'Inter', fontSize: 14, color: Colors.black),
               border: InputBorder.none,
               isDense: true,
               contentPadding: const EdgeInsets.only(top: 4, bottom: 4),
@@ -496,24 +289,14 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 12,
-              color: Colors.grey,
-            ),
-          ),
+          Text(label, style: const TextStyle(fontFamily: 'Inter', fontSize: 12, color: Colors.grey)),
           if (loading)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 6),
               child: SizedBox(
                 width: 18,
                 height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Color(0xFF4AA5A6),
-                ),
+                child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF4AA5A6)),
               ),
             )
           else
@@ -525,17 +308,9 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
                   value: value,
                   hint: Text(
                     enabled ? 'Pilih $label' : '',
-                    style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 14,
-                      color: Colors.black54,
-                    ),
+                    style: const TextStyle(fontFamily: 'Inter', fontSize: 14, color: Colors.black54),
                   ),
-                  icon: const Icon(
-                    Icons.unfold_more,
-                    size: 20,
-                    color: Colors.black54,
-                  ),
+                  icon: const Icon(Icons.unfold_more, size: 20, color: Colors.black54),
                   style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 14,
@@ -545,22 +320,15 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
                   onChanged: enabled
                       ? (selectedName) {
                           if (selectedName == null) return;
-                          final item = items.firstWhere(
-                            (e) => e['name'] == selectedName,
-                          );
+                          final item = items.firstWhere((e) => e['name'] == selectedName);
                           onChanged!(item['id']!, item['name']!);
                         }
                       : null,
                   items: items
-                      .map(
-                        (e) => DropdownMenuItem<String>(
-                          value: e['name'],
-                          child: Text(
-                            e['name']!,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      )
+                      .map((e) => DropdownMenuItem<String>(
+                            value: e['name'],
+                            child: Text(e['name']!, overflow: TextOverflow.ellipsis),
+                          ))
                       .toList(),
                 ),
               ),

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
+import '../services/auth_state.dart';
+import 'ai_trip_detail_page.dart';
 import 'ai_trip_plan_page.dart';
-
-List<Map<String, dynamic>> globalTrips = [];
 
 class TripPlanSelectionPage extends StatefulWidget {
   const TripPlanSelectionPage({super.key});
@@ -11,6 +12,29 @@ class TripPlanSelectionPage extends StatefulWidget {
 }
 
 class _TripPlanSelectionPageState extends State<TripPlanSelectionPage> {
+  List<Map<String, dynamic>> _trips = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchTrips();
+  }
+
+  Future<void> _fetchTrips() async {
+    final userId = AuthState.currentUser?['id'];
+    if (userId == null) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+    try {
+      final trips = await ApiService.fetchTripPlans(userId as int);
+      if (mounted) setState(() { _trips = trips; _loading = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -50,7 +74,7 @@ class _TripPlanSelectionPageState extends State<TripPlanSelectionPage> {
                       builder: (context) => const AiTripPlanPage(),
                     ),
                   );
-                  setState(() {});
+                  _fetchTrips();
                 },
                 child: Container(
                   height: 180,
@@ -65,7 +89,7 @@ class _TripPlanSelectionPageState extends State<TripPlanSelectionPage> {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 10,
                         offset: const Offset(0, 5),
                       ),
@@ -74,7 +98,7 @@ class _TripPlanSelectionPageState extends State<TripPlanSelectionPage> {
                   child: Container(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(24),
-                      color: Colors.black.withOpacity(0.4),
+                      color: Colors.black.withValues(alpha: 0.4),
                     ),
                     child: const Center(
                       child: Text(
@@ -104,8 +128,9 @@ class _TripPlanSelectionPageState extends State<TripPlanSelectionPage> {
               ),
               const SizedBox(height: 16),
 
-              // Dummy "Perjalananmu" List Item
-              if (globalTrips.isEmpty)
+              if (_loading)
+                const Center(child: CircularProgressIndicator(color: Color(0xFF4AA5A6)))
+              else if (_trips.isEmpty)
                 const Padding(
                   padding: EdgeInsets.only(top: 20.0),
                   child: Center(
@@ -116,11 +141,26 @@ class _TripPlanSelectionPageState extends State<TripPlanSelectionPage> {
                   ),
                 )
               else
-                ...globalTrips.map(
-                  (trip) => _buildTripCard(
-                    trip['name'],
-                    trip['duration'],
-                    trip['imageUrl'],
+                ..._trips.map(
+                  (trip) => GestureDetector(
+                    onTap: () {
+                      final places = (trip['places'] as List? ?? [])
+                          .cast<Map<String, dynamic>>();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => AiTripDetailPage(
+                            tripName: trip['name'] as String,
+                            places: places,
+                          ),
+                        ),
+                      );
+                    },
+                    child: _buildTripCard(
+                      trip['name'] as String,
+                      trip['duration'] as String,
+                      trip['image_url'] as String,
+                    ),
                   ),
                 ),
               const SizedBox(height: 32),
@@ -140,7 +180,7 @@ class _TripPlanSelectionPageState extends State<TripPlanSelectionPage> {
         border: Border.all(color: Colors.grey.shade300),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
@@ -149,21 +189,17 @@ class _TripPlanSelectionPageState extends State<TripPlanSelectionPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Image
           Container(
             height: 140,
             width: double.infinity,
             decoration: BoxDecoration(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(24),
-              ),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
               image: DecorationImage(
                 image: NetworkImage(imageUrl),
                 fit: BoxFit.cover,
               ),
             ),
           ),
-          // Details
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -178,53 +214,13 @@ class _TripPlanSelectionPageState extends State<TripPlanSelectionPage> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '$duration hari',
-                      style: const TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 14,
-                        color: Colors.grey,
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(
-                          0xFFF9E7B3,
-                        ), // Warning/Orange-ish background
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 6,
-                            height: 6,
-                            decoration: const BoxDecoration(
-                              color: Colors.orange,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          const Text(
-                            'Planning',
-                            style: TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 12,
-                              color: Colors.black87,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                Text(
+                  '$duration hari',
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 14,
+                    color: Colors.grey,
+                  ),
                 ),
               ],
             ),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -22,11 +23,13 @@ double _haversineSimple(double lat1, double lon1, double lat2, double lon2) {
 class MapDirectionPage extends StatefulWidget {
   final String destinationName;
   final LatLng destination;
+  final String? destinationAddress;
 
   const MapDirectionPage({
     super.key,
     required this.destinationName,
     required this.destination,
+    this.destinationAddress,
   });
 
   @override
@@ -51,19 +54,92 @@ class _MapDirectionPageState extends State<MapDirectionPage> {
   // Transport mode: 'car', 'motorcycle', 'walking'
   String _selectedMode = 'car';
 
+  List<String> _suggestions = [];
+  Timer? _debounce;
+
   @override
   void initState() {
     super.initState();
     _currentDestination = widget.destination;
     _currentDestinationName = widget.destinationName;
     _searchController = TextEditingController(text: _currentDestinationName);
-    _loadRoute();
+    if (widget.destinationAddress != null && widget.destinationAddress!.isNotEmpty) {
+      _geocodeAddressThenRoute(widget.destinationAddress!);
+    } else {
+      _loadRoute();
+    }
+  }
+
+  /// Geocode a text address via Nominatim, then load the route.
+  Future<void> _geocodeAddressThenRoute(String address) async {
+    try {
+      final query = '${widget.destinationName} $address';
+      final params = <String, String>{
+        'q': query,
+        'format': 'json',
+        'limit': '5',
+        'addressdetails': '1',
+      };
+      final uri = Uri.https('nominatim.openstreetmap.org', '/search', params);
+      final res = await http.get(uri, headers: {
+        'User-Agent': 'FindKalApp/1.0',
+        'Accept-Language': 'id,en',
+      });
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as List;
+        if (data.isNotEmpty) {
+          final place = data.first as Map<String, dynamic>;
+          _currentDestination = LatLng(
+            double.parse(place['lat'] as String),
+            double.parse(place['lon'] as String),
+          );
+        }
+      }
+    } catch (_) {
+      // Keep widget.destination as fallback
+    }
+    await _loadRoute();
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onSearchTextChanged(String query) {
+    _debounce?.cancel();
+    if (query.trim().isEmpty) {
+      setState(() => _suggestions = []);
+      return;
+    }
+    _debounce = Timer(const Duration(milliseconds: 400), () => _fetchSuggestions(query.trim()));
+  }
+
+  Future<void> _fetchSuggestions(String query) async {
+    try {
+      final params = <String, String>{
+        'q': query,
+        'format': 'json',
+        'limit': '5',
+        'addressdetails': '0',
+      };
+      if (_userLocation != null) {
+        final lat = _userLocation!.latitude;
+        final lon = _userLocation!.longitude;
+        params['viewbox'] = '${lon - 1},${lat + 1},${lon + 1},${lat - 1}';
+        params['bounded'] = '0';
+      }
+      final uri = Uri.https('nominatim.openstreetmap.org', '/search', params);
+      final res = await http.get(uri, headers: {'User-Agent': 'FindKalApp/1.0', 'Accept-Language': 'id,en'});
+      if (res.statusCode == 200 && mounted) {
+        final data = jsonDecode(res.body) as List;
+        setState(() {
+          _suggestions = data.map((e) => e['display_name'] as String).toList();
+        });
+      }
+    } catch (_) {}
   }
 
   /// Geocode [query] via Nominatim, update destination, then refetch route.
@@ -165,11 +241,28 @@ class _MapDirectionPageState extends State<MapDirectionPage> {
         return;
       }
 
-      const origin = LatLng(-6.302640076739822, 106.63938340127805);
+      LatLng origin;
+      try {
+        final pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        );
+        origin = LatLng(pos.latitude, pos.longitude);
+      } catch (_) {
+        origin = const LatLng(-6.302640076739822, 106.63938340127805);
+      }
       setState(() => _userLocation = origin);
 
+      // Use mode-appropriate OSRM routing profile
+      final String routeBase;
+      switch (_selectedMode) {
+        case 'walking':
+          routeBase = 'https://routing.openstreetmap.de/routed-foot/route/v1/driving/';
+          break;
+        default: // 'car' and 'motorcycle' both use driving
+          routeBase = 'https://router.project-osrm.org/route/v1/driving/';
+      }
       final url = Uri.parse(
-        'https://router.project-osrm.org/route/v1/driving/'
+        '$routeBase'
         '${origin.longitude},${origin.latitude};'
         '${_currentDestination.longitude},${_currentDestination.latitude}'
         '?overview=full&geometries=geojson',
@@ -328,7 +421,11 @@ class _MapDirectionPageState extends State<MapDirectionPage> {
                           Expanded(
                             child: TextField(
                               controller: _searchController,
-                              onSubmitted: _searchNewDestination,
+                              onSubmitted: (q) {
+                                setState(() => _suggestions = []);
+                                _searchNewDestination(q);
+                              },
+                              onChanged: _onSearchTextChanged,
                               textInputAction: TextInputAction.search,
                               decoration: const InputDecoration(
                                 border: InputBorder.none,
@@ -392,6 +489,52 @@ class _MapDirectionPageState extends State<MapDirectionPage> {
                           fontWeight: FontWeight.w600),
                     ),
                   ],
+                ),
+              ),
+            ),
+
+          // ── AUTOCOMPLETE SUGGESTIONS ─────────────────────────────────
+          if (_suggestions.isNotEmpty)
+            Positioned(
+              top: 72,
+              left: 70,
+              right: 16,
+              child: Material(
+                elevation: 4,
+                borderRadius: BorderRadius.circular(16),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: _suggestions.map((name) {
+                      return InkWell(
+                        onTap: () {
+                          _searchController.text = name;
+                          setState(() => _suggestions = []);
+                          _debounce?.cancel();
+                          _searchNewDestination(name);
+                        },
+                        child: Container(
+                          color: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.place_outlined, size: 18, color: Color(0xFF4AA5A6)),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  name,
+                                  style: const TextStyle(fontFamily: 'Inter', fontSize: 13),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
                 ),
               ),
             ),
@@ -581,7 +724,12 @@ class _MapDirectionPageState extends State<MapDirectionPage> {
     final selected = _selectedMode == mode;
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _selectedMode = mode),
+        onTap: () {
+          if (_selectedMode != mode) {
+            setState(() => _selectedMode = mode);
+            _loadRoute();
+          }
+        },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 8),

@@ -7,7 +7,28 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
-from .models import User, EmailVerification, PasswordResetToken, PendingEmailVerification, Unggahan, UnggahanImage, Bookmark
+import math as _math
+import random as _random
+from django.utils import timezone as _tz
+import datetime as _dt
+
+
+def _haversine_km(lat1, lon1, lat2, lon2):
+    """Return great-circle distance in kilometres between two coordinates."""
+    R = 6371.0
+    dlat = _math.radians(lat2 - lat1)
+    dlon = _math.radians(lon2 - lon1)
+    a = (_math.sin(dlat / 2) ** 2
+         + _math.cos(_math.radians(lat1))
+         * _math.cos(_math.radians(lat2))
+         * _math.sin(dlon / 2) ** 2)
+    return R * 2 * _math.asin(_math.sqrt(a))
+from .models import (
+    User, EmailVerification, PasswordResetToken, PendingEmailVerification,
+    Unggahan, UnggahanImage, Bookmark,
+    SurveyQuestion, SurveyAttempt, SURVEY_MAX_ATTEMPTS, SURVEY_LOCKOUT_DAYS,
+    SavedTripPlan,
+)
 
 
 def _send_otp_email(email, code):
@@ -138,7 +159,13 @@ class RegisterSendVerificationView(APIView):
 
         code = EmailVerification.generate_code()
         PendingEmailVerification.objects.create(email=email, code=code)
-        _send_otp_email(email, code)
+        try:
+            _send_otp_email(email, code)
+        except Exception as e:
+            return Response(
+                {"error": f"Gagal mengirim email verifikasi: {e}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
         return Response({"detail": "Kode verifikasi dikirim ke email kamu."}, status=status.HTTP_200_OK)
 
@@ -285,7 +312,13 @@ class PasswordResetRequestView(APIView):
             code=code,
             purpose=EmailVerification.Purpose.RESET_PASSWORD,
         )
-        _send_otp_email(user.email, code)
+        try:
+            _send_otp_email(user.email, code)
+        except Exception as e:
+            return Response(
+                {"error": f"Gagal mengirim email: {e}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
         return Response(
             {"email": user.email},
@@ -318,7 +351,13 @@ class PasswordResetResendView(APIView):
             code=code,
             purpose=EmailVerification.Purpose.RESET_PASSWORD,
         )
-        _send_otp_email(user.email, code)
+        try:
+            _send_otp_email(user.email, code)
+        except Exception as e:
+            return Response(
+                {"error": f"Gagal mengirim email: {e}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
         return Response(
             {"detail": "Kode baru sudah dikirim ulang melalui email. Segera cek inbox kamu."},
@@ -487,10 +526,18 @@ class LoginView(APIView):
                 pass
 
         if user:
-            if user.role != "user":
+            if user.role not in ("user", "local"):
                 return Response({"error": "Akun tidak memiliki akses yang sesuai."}, status=status.HTTP_403_FORBIDDEN)
             if user.check_password(password):
                 photo_url = request.build_absolute_uri(user.profile_photo.url) if user.profile_photo else None
+                # Fetch attempt info for the app
+                try:
+                    attempt = user.survey_attempt
+                    attempts_used = attempt.attempts_used
+                    locked_until = attempt.locked_until.isoformat() if attempt.locked_until else None
+                except SurveyAttempt.DoesNotExist:
+                    attempts_used = 0
+                    locked_until = None
                 return Response({
                     "message": "Berhasil masuk",
                     "user": {
@@ -500,6 +547,10 @@ class LoginView(APIView):
                         "name": user.name,
                         "bio": user.bio,
                         "profile_photo": photo_url,
+                        "is_warga_lokal": user.role == "local",
+                        "warga_lokal_region": user.warga_lokal_region,
+                        "attempts_used": attempts_used,
+                        "locked_until": locked_until,
                     }
                 }, status=status.HTTP_200_OK)
             else:
@@ -530,6 +581,8 @@ def _serialize_unggahan(unggahan, request):
         "budget":          unggahan.budget,
         "imagePaths":      images,
         "createdAt":       unggahan.created_at.isoformat(),
+        "latitude":        unggahan.latitude,
+        "longitude":       unggahan.longitude,
     }
 
 
@@ -539,9 +592,29 @@ def _serialize_unggahan(unggahan, request):
 # POST /api/unggahan/          — multipart: user_id, nama_tempat, alamat,
 #                                ulasan, rating, budget, image (×1-4)
 # ---------------------------------------------------------------------------
+_NEARBY_RADIUS_KM = 15.0
+
+
 class UnggahanListCreateView(APIView):
     def get(self, request):
         unggahans = Unggahan.objects.select_related("user").prefetch_related("images").all()
+
+        # Optional proximity filter: ?lat=X&lng=Y
+        # Posts with no coordinates are always included (location unknown).
+        try:
+            user_lat = float(request.query_params["lat"])
+            user_lng = float(request.query_params["lng"])
+            filtered = []
+            for u in unggahans:
+                if u.latitude is None or u.longitude is None:
+                    filtered.append(u)
+                elif _haversine_km(user_lat, user_lng, u.latitude, u.longitude) <= _NEARBY_RADIUS_KM:
+                    filtered.append(u)
+            unggahans = filtered
+        except (KeyError, ValueError, TypeError):
+            # No valid lat/lng provided — return all
+            pass
+
         return Response([_serialize_unggahan(u, request) for u in unggahans])
 
     def post(self, request):
@@ -665,5 +738,263 @@ class BookmarkDeleteView(APIView):
             return Response({"detail": "Dihapus dari Markah."}, status=status.HTTP_200_OK)
         return Response({"error": "Bookmark tidak ditemukan."}, status=status.HTTP_404_NOT_FOUND)
 
+
+# ---------------------------------------------------------------------------
+# Survey endpoints
+# GET  /api/survey/questions/  — returns 5 questions (4 fixed demo + 1 random)
+# POST /api/survey/submit/     — body: {user_id, answers: [{question_id, selected_index}]}
+# ---------------------------------------------------------------------------
+class SurveyQuestionsView(APIView):
+    def get(self, request):
+        demo_qs = list(SurveyQuestion.objects.filter(is_demo=True))
+        other_qs = list(SurveyQuestion.objects.filter(is_demo=False))
+
+        selected = list(demo_qs)
+        remaining_slots = max(0, 5 - len(selected))
+        if remaining_slots > 0 and other_qs:
+            selected += _random.sample(other_qs, min(remaining_slots, len(other_qs)))
+
+        _random.shuffle(selected)
+
+        data = [
+            {
+                "id": q.id,
+                "question_text": q.question_text,
+                "options": [q.option_a, q.option_b, q.option_c, q.option_d],
+            }
+            for q in selected
+        ]
+        return Response(data)
+
+
+class SurveySubmitView(APIView):
+    def post(self, request):
+        user_id = request.data.get("user_id")
+        answers = request.data.get("answers", [])
+        region  = (request.data.get("region") or "").strip()
+
+        if not user_id:
+            return Response({"error": "user_id wajib diisi."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({"error": "User tidak ditemukan."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Already verified
+        if user.role == "local":
+            return Response({"passed": True, "score": 5, "already_verified": True})
+
+        attempt, _ = SurveyAttempt.objects.get_or_create(user=user)
+
+        # Check lockout
+        if attempt.is_locked():
+            return Response(
+                {"error": "Akun dikunci sementara.", "locked_until": attempt.locked_until.isoformat()},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Score answers
+        score = 0
+        for ans in answers:
+            try:
+                q = SurveyQuestion.objects.get(id=ans["question_id"])
+                if int(ans["selected_index"]) == q.correct_index:
+                    score += 1
+            except (SurveyQuestion.DoesNotExist, KeyError, ValueError):
+                pass
+
+        attempt.attempts_used += 1
+        attempt.last_attempt_at = _tz.now()
+
+        if score >= 4:
+            user.role = "local"
+            if region:
+                user.warga_lokal_region = region
+            user.save(update_fields=["role", "warga_lokal_region"])
+            attempt.save()
+            return Response({"passed": True, "score": score, "region": user.warga_lokal_region})
+
+        if attempt.attempts_used >= SURVEY_MAX_ATTEMPTS:
+            attempt.locked_until = _tz.now() + _dt.timedelta(days=SURVEY_LOCKOUT_DAYS)
+            attempt.save()
+            return Response({
+                "passed": False,
+                "score": score,
+                "locked_until": attempt.locked_until.isoformat(),
+                "attempts_remaining": 0,
+            })
+
+        attempt.save()
+        return Response({
+            "passed": False,
+            "score": score,
+            "attempts_remaining": SURVEY_MAX_ATTEMPTS - attempt.attempts_used,
+        })
+
+
+# ---------------------------------------------------------------------------
+# Trip Planner endpoint (rule-based, uses FindKal Unggahan data)
+# POST /api/ai/trip-plan/
+# Body: { province, city (optional), duration (days), budget_id, themes (optional list) }
+# ---------------------------------------------------------------------------
+_BUDGET_MAP = {
+    "hemat":    ["Rp 1k - Rp 50k"],
+    "budget":   ["Rp 50k - Rp 100k"],
+    "menengah": ["Rp 100k - Rp 150k", "Rp 150k - Rp 200k"],
+    "premium":  ["Rp 150k - Rp 200k", "Rp 250k+"],
+    "luxury":   ["Rp 250k+"],
+}
+
+_BUDGET_LABELS = {
+    "hemat":    "< Rp100.000",
+    "budget":   "Rp100.000 – Rp300.000",
+    "menengah": "Rp300.000 – Rp700.000",
+    "premium":  "Rp700.000 – Rp1.500.000",
+    "luxury":   "> Rp1.500.000",
+}
+
+# Keywords to match themes against nama_tempat and ulasan
+_THEME_KEYWORDS = {
+    "Nature":           ["park", "alam", "taman", "hutan", "pantai", "danau", "gunung", "bukit", "kebun", "square", "outdoor"],
+    "Shopping":         ["mall", "aeon", "market", "shop", "plaza", "pasar", "store", "boutique"],
+    "Wellness":         ["spa", "gym", "sport", "fitness", "yoga", "padel", "racquet", "tennis", "badminton", "renang", "kolam"],
+    "Entertainment":    ["playground", "playtopia", "funtasia", "ocean park", "theme park", "wahana", "hiburan", "cinema", "bioskop"],
+    "Food & drinks":    ["cafe", "kopi", "restoran", "restaurant", "kuliner", "makan", "bread", "bakery", "coffee", "bistro", "warung"],
+    "Culture & History": ["museum", "heritage", "sejarah", "budaya", "monument", "tugu", "cultural", "library", "perpustakaan", "peringatan"],
+}
+
+_VISIT_TIMES = ["09.00 AM", "12.00 PM", "03.00 PM", "06.00 PM"]
+
+
+class TripPlanView(APIView):
+    def post(self, request):
+        province  = (request.data.get("province") or "").strip()
+        city      = (request.data.get("city") or "").strip()
+        duration  = int(request.data.get("duration") or 1)
+        budget_id = (request.data.get("budget_id") or "menengah").strip()
+        themes    = request.data.get("themes") or []
+
+        budget_choices = _BUDGET_MAP.get(budget_id, _BUDGET_MAP["menengah"])
+        budget_label   = _BUDGET_LABELS.get(budget_id, "")
+
+        # Build location filter
+        loc_filter = Q()
+        if city:
+            loc_filter |= Q(alamat__icontains=city)
+        if province:
+            loc_filter |= Q(alamat__icontains=province)
+
+        # Try filtered query first
+        qs = Unggahan.objects.filter(loc_filter, budget__in=budget_choices).order_by("-rating")
+
+        # Fall back to all posts (sorted by rating) if too few results
+        if qs.count() < 3:
+            qs = Unggahan.objects.all().order_by("-rating")
+
+        # Filter by themes using keyword matching against nama_tempat + ulasan
+        if themes:
+            keywords = []
+            for theme in themes:
+                keywords.extend(_THEME_KEYWORDS.get(theme, []))
+
+            if keywords:
+                theme_filter = Q()
+                for kw in keywords:
+                    theme_filter |= Q(nama_tempat__icontains=kw) | Q(ulasan__icontains=kw)
+                theme_qs = qs.filter(theme_filter)
+                # Only apply theme filter if it yields enough results
+                if theme_qs.count() >= 3:
+                    qs = theme_qs
+
+        # Deduplicate by nama_tempat (keep first = highest rated due to ordering)
+        seen_names = set()
+        deduped = []
+        for u in qs:
+            key = u.nama_tempat.lower().strip()
+            if key not in seen_names:
+                seen_names.add(key)
+                deduped.append(u)
+
+        # Take duration × 3 places, capped at 9
+        max_places = min(duration * 3, 9)
+        selected = deduped[:max_places]
+
+        # Build place list
+        places = []
+        for idx, u in enumerate(selected):
+            first_img = u.images.order_by("order").first()
+            image_url = (
+                request.build_absolute_uri(first_img.image.url)
+                if first_img and first_img.image
+                else None
+            )
+            time_label = _VISIT_TIMES[idx % len(_VISIT_TIMES)]
+            detail_text = (u.ulasan[:120] + ("..." if len(u.ulasan) > 120 else ""))
+            places.append({
+                "time":      time_label,
+                "title":     u.nama_tempat,
+                "details":   f"{detail_text}\nBudget: {u.budget}",
+                "image_url": image_url,
+                "latitude":  u.latitude,
+                "longitude": u.longitude,
+            })
+
+        location_label = city if city else province
+        theme_label = ", ".join(themes) if themes else ""
+        vibes = f"Perjalanan {duration} hari di {location_label} dengan budget {budget_label}"
+        if theme_label:
+            vibes += f", tema {theme_label}"
+
+        return Response({
+            "place_count":     len(places),
+            "vibes":           vibes,
+            "budget_summary":  budget_label,
+            "places":          places,
+        })
+
+
+class SavedTripPlanView(APIView):
+    def post(self, request):
+        user_id   = request.data.get("user_id")
+        name      = (request.data.get("name") or "").strip()
+        duration  = (request.data.get("duration") or "1")
+        image_url = (request.data.get("image_url") or "")
+        places    = request.data.get("places") or []
+
+        if not user_id or not name:
+            return Response({"error": "user_id and name are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        trip = SavedTripPlan.objects.create(
+            user=user,
+            name=name,
+            duration=str(duration),
+            image_url=image_url,
+            places=places,
+        )
+        return Response({"id": trip.pk}, status=status.HTTP_201_CREATED)
+
+    def get(self, request):
+        user_id = request.query_params.get("user_id")
+        if not user_id:
+            return Response({"error": "user_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        trips = SavedTripPlan.objects.filter(user_id=user_id)
+        data = [
+            {
+                "id":        t.pk,
+                "name":      t.name,
+                "duration":  t.duration,
+                "image_url": t.image_url,
+                "places":    t.places,
+            }
+            for t in trips
+        ]
+        return Response(data)
 
 
