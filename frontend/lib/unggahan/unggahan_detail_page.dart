@@ -11,6 +11,9 @@ class UnggahanDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final user = AuthState.currentUser ?? {};
+    final isCurrentUser = unggahan.usernameHandle.replaceAll('@', '') == user['username'];
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -43,6 +46,47 @@ class UnggahanDetailPage extends StatelessWidget {
           ],
         ),
         actions: [
+          if (isCurrentUser && unggahan.id != null)
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.red),
+              onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Hapus Unggahan'),
+                    content: const Text('Apakah Anda yakin ingin menghapus unggahan ini?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+                      ),
+                    ],
+                  ),
+                );
+
+                if (confirm == true && context.mounted) {
+                  try {
+                    await ApiService.deleteUnggahan(unggahan.id!, user['id'] as int);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Unggahan berhasil dihapus')),
+                      );
+                      Navigator.pop(context, true);
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(e.toString())),
+                      );
+                    }
+                  }
+                }
+              },
+            ),
           BookmarkButton(unggahan: unggahan),
           const SizedBox(width: 8),
         ],

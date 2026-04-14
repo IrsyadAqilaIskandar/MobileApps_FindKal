@@ -244,13 +244,16 @@ class _ProfilePageState extends State<ProfilePage> {
                 itemBuilder: (context, index) {
                   final post = posts[index];
                   return GestureDetector(
-                    onTap: () {
-                      Navigator.push(
+                    onTap: () async {
+                      final result = await Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) => UnggahanDetailPage(unggahan: post),
                         ),
                       );
+                      if (result == true) {
+                        setState(() {});
+                      }
                     },
                     child: Container(
                       decoration: BoxDecoration(

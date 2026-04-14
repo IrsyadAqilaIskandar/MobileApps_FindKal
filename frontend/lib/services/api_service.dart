@@ -319,6 +319,25 @@ class ApiService {
     }
   }
 
+  /// Delete an unggahan
+  static Future<void> deleteUnggahan(int unggahanId, int userId) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$_baseUrl/unggahan/$unggahanId/?user_id=$userId'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        throw ApiException(body['error'] ?? 'Gagal menghapus unggahan.');
+      }
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException('Tidak dapat terhubung ke server: $e');
+    }
+  }
+
   /// Fetch bookmarks for a user (returns list of unggahan maps)
   static Future<List<Map<String, dynamic>>> fetchBookmarks(int userId) async {
     try {
