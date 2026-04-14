@@ -12,16 +12,20 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  bool _passwordVisible = false;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: SingleChildScrollView(
         child: Column(
-        children: [
-          // Top Curved Header Section
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    // Top Curved Header Section
           Stack(
             children: [
               ClipPath(
@@ -113,7 +117,7 @@ class _LoginPageState extends State<LoginPage> {
                 const SizedBox(height: 6),
                 TextField(
                   controller: _passwordController,
-                  obscureText: true,
+                  obscureText: !_passwordVisible,
                   style: const TextStyle(fontFamily: 'Arial', fontSize: 14),
                   decoration: InputDecoration(
                     isDense: true,
@@ -128,6 +132,14 @@ class _LoginPageState extends State<LoginPage> {
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(30),
                       borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _passwordVisible ? Icons.visibility : Icons.visibility_off,
+                        color: Colors.grey,
+                        size: 20,
+                      ),
+                      onPressed: () => setState(() => _passwordVisible = !_passwordVisible),
                     ),
                   ),
                 ),
@@ -230,32 +242,37 @@ class _LoginPageState extends State<LoginPage> {
           ),
 
           const SizedBox(height: 40),
-
-          // Bottom Link
-          Center(
-            child: InkWell(
-              onTap: () {
-                Navigator.pushNamed(context, '/register');
-              },
-              hoverColor: Colors.transparent,
-              highlightColor: Colors.transparent,
-              splashColor: Colors.transparent,
-              focusColor: Colors.transparent,
-              child: const Text(
-                "Belum punya akun? Daftar sekarang!",
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 13,
-                  color: Color(0xFF4AA5A6),
-                  decoration: TextDecoration.underline,
-                  decorationColor: Color(0xFF4AA5A6),
+                  ],
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 50),
-        ],
-        ),
+
+            // Bottom Link
+            Padding(
+              padding: const EdgeInsets.only(bottom: 30, top: 10),
+              child: Center(
+                child: InkWell(
+                  onTap: () {
+                    Navigator.pushNamed(context, '/register');
+                  },
+                  hoverColor: Colors.transparent,
+                  highlightColor: Colors.transparent,
+                  splashColor: Colors.transparent,
+                  focusColor: Colors.transparent,
+                  child: const Text(
+                    "Belum punya akun? Daftar sekarang!",
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 13,
+                      color: Color(0xFF4AA5A6),
+                      decoration: TextDecoration.underline,
+                      decorationColor: Color(0xFF4AA5A6),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

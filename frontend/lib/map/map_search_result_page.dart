@@ -105,8 +105,8 @@ class _MapSearchResultPageState extends State<MapSearchResultPage> {
       final list = <_MapSuggestion>[];
       for (final j in data) {
         final name = j['placeName'] as String? ?? '';
-        final lat = (j['lat'] as num?)?.toDouble();
-        final lng = (j['lng'] as num?)?.toDouble();
+        final lat = (j['latitude'] as num?)?.toDouble();
+        final lng = (j['longitude'] as num?)?.toDouble();
         if (name.isNotEmpty && seen.add(name) && lat != null && lng != null) {
           list.add(_MapSuggestion(label: name, lat: lat, lng: lng));
         }
@@ -145,7 +145,7 @@ class _MapSearchResultPageState extends State<MapSearchResultPage> {
           final lat = _userLocation!.latitude;
           final lon = _userLocation!.longitude;
           params['viewbox'] = '${lon - 1},${lat + 1},${lon + 1},${lat - 1}';
-          params['bounded'] = '0';
+          params['bounded'] = '1';
         }
         final uri = Uri.https('nominatim.openstreetmap.org', '/search', params);
         final res = await http.get(uri, headers: {'User-Agent': 'FindKalApp/1.0', 'Accept-Language': 'id,en'});
@@ -258,7 +258,7 @@ out center;
           final lat = _userLocation!.latitude;
           final lon = _userLocation!.longitude;
           params['viewbox'] = '${lon - 1},${lat + 1},${lon + 1},${lat - 1}';
-          params['bounded'] = '0';
+          params['bounded'] = '1';
         }
         final uri = Uri.https('nominatim.openstreetmap.org', '/search', params);
         final res = await http.get(uri, headers: {
@@ -279,7 +279,8 @@ out center;
         }
       }
 
-      // Attach distance and sort nearest first if we have user location
+      // Attach distance and sort nearest first if we have user location.
+      // Also drop anything beyond 50 km so far-away results don't pollute the list.
       if (_userLocation != null) {
         results = results.map((r) {
           final d = _haversine(_userLocation!.latitude,
@@ -287,6 +288,7 @@ out center;
           return r.withDistance(d);
         }).toList()
           ..sort((a, b) => a.distanceMeters!.compareTo(b.distanceMeters!));
+        results = results.where((r) => r.distanceMeters! <= 50000).toList();
       }
 
       setState(() {

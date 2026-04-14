@@ -45,7 +45,7 @@ Positioned(
     clipper: TopCurveClipper(),
     child: Container(
       height: 240,
-      color: const Color(0xFF9ACAD0).withOpacity(0.4),
+      color: const Color(0xFF9ACAD0).withValues(alpha: 0.4),
     ),
   ),
 ),
@@ -56,6 +56,20 @@ Positioned(
           SafeArea(
             child: Column(
               children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
                 const Spacer(flex: 2),
 
                 // Ikon pin lokasi
@@ -150,12 +164,14 @@ Positioned(
                     width: double.infinity,
                     height: 52,
                     child: ElevatedButton(
-                      onPressed: isVerified || isLocked
-                          ? null
-                          : () => Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (_) => const SurveyRegionPage()),
-                              ),
+                      onPressed: isVerified
+                          ? () => Navigator.pop(context)
+                          : isLocked
+                              ? null
+                              : () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (_) => const SurveyRegionPage()),
+                                  ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: isVerified
                             ? Colors.green.shade400

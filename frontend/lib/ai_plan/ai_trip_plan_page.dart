@@ -1,9 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import '../services/api_service.dart';
-import 'ai_trip_detail_page.dart';
-import 'trip_plan_selection_page.dart';
+import 'ai_trip_theme_selection_page.dart';
 
 const String _apiBase = 'https://api-regional-indonesia.vercel.app/api';
 
@@ -31,10 +29,6 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
 
   bool _loadingProvinces = false;
   bool _loadingCities = false;
-  bool _isGenerating = false;
-  bool _isGenerated = false;
-
-  Map<String, dynamic>? _generatedPlan;
 
   @override
   void initState() {
@@ -95,186 +89,8 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
     });
   }
 
-  Future<void> _generate() async {
-    setState(() => _isGenerating = true);
-    try {
-      final plan = await ApiService.generateTripPlan(
-        province: _selectedProvince ?? '',
-        city: _selectedCity,
-        duration: int.tryParse(_durationController.text) ?? 1,
-        budgetId: _selectedBudgetId ?? 'menengah',
-      );
-      if (mounted) {
-        setState(() {
-          _generatedPlan = plan;
-          _isGenerating = false;
-          _isGenerated = true;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isGenerating = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (_isGenerating) {
-      return Scaffold(
-        backgroundColor: Colors.white,
-        body: SafeArea(
-          child: Column(
-            children: [
-              Expanded(
-                child: Center(
-                  child: Image.asset('assets/images/location.png', width: 150),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(
-                  bottom: 64.0,
-                  left: 64.0,
-                  right: 64.0,
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: const LinearProgressIndicator(
-                    minHeight: 6,
-                    backgroundColor: Color(0xFFEBEBEB),
-                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF4AA5A6)),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    if (_isGenerated && _generatedPlan != null) {
-      final plan = _generatedPlan!;
-      final placeCount = plan['place_count'] as int? ?? 0;
-      final vibes = plan['vibes'] as String? ?? '';
-      final budgetSummary = plan['budget_summary'] as String? ?? '';
-      final places = (plan['places'] as List? ?? []).cast<Map<String, dynamic>>();
-      final coverImageUrl = places.isNotEmpty ? places[0]['image_url'] as String? : null;
-
-      return Scaffold(
-        backgroundColor: Colors.white,
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios, color: Color(0xFF4AA5A6)),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ),
-        body: SafeArea(
-          child: Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(24),
-                        child: coverImageUrl != null
-                            ? Image.network(
-                                coverImageUrl,
-                                width: double.infinity,
-                                height: 200,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, e) => _coverPlaceholder(),
-                              )
-                            : _coverPlaceholder(),
-                      ),
-                      const SizedBox(height: 24),
-                      const Text(
-                        'Perjalananmu Sudah Siap!',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF4AA5A6),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Terdapat $placeCount tempat yang akan kamu telusuri',
-                        style: const TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 14,
-                          color: Colors.black,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      _buildInfoPill('Budget: $budgetSummary'),
-                      const SizedBox(height: 16),
-                      _buildInfoPill('Vibes: $vibes'),
-                    ],
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      final title = _nameController.text.isNotEmpty
-                          ? _nameController.text
-                          : 'My Trip My Adventure';
-                      final duration = _durationController.text;
-
-                      globalTrips.add({
-                        'name': title,
-                        'duration': duration,
-                        'imageUrl': coverImageUrl ??
-                            'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=800&q=80',
-                        'places': places,
-                      });
-
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => AiTripDetailPage(
-                            tripName: title,
-                            places: places,
-                          ),
-                        ),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF9CCCD0),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: const Text(
-                      'Lihat detail perjalananmu',
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
 
     // ── Form ──────────────────────────────────────────────────────────────
     return Scaffold(
@@ -374,7 +190,21 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _generate,
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => AiTripThemeSelectionPage(
+                          tripName: _nameController.text,
+                          duration: _durationController.text,
+                          province: _selectedProvince,
+                          city: _selectedCity,
+                          budget: _selectedBudget,
+                          budgetId: _selectedBudgetId,
+                        ),
+                      ),
+                    );
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF9CCCD0),
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -384,7 +214,7 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
                     elevation: 0,
                   ),
                   child: const Text(
-                    'Generate Rencana Perjalanan',
+                    'Lanjutkan',
                     style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 16,
@@ -397,34 +227,6 @@ class _AiTripPlanPageState extends State<AiTripPlanPage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _coverPlaceholder() {
-    return Container(
-      width: double.infinity,
-      height: 200,
-      decoration: BoxDecoration(
-        color: Colors.grey.shade300,
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: const Icon(Icons.map, size: 50, color: Colors.grey),
-    );
-  }
-
-  Widget _buildInfoPill(String text) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFF4AA5A6)),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(fontFamily: 'Inter', fontSize: 14, color: Colors.black),
       ),
     );
   }

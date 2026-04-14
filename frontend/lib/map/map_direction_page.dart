@@ -252,8 +252,17 @@ class _MapDirectionPageState extends State<MapDirectionPage> {
       }
       setState(() => _userLocation = origin);
 
+      // Use mode-appropriate OSRM routing profile
+      final String routeBase;
+      switch (_selectedMode) {
+        case 'walking':
+          routeBase = 'https://routing.openstreetmap.de/routed-foot/route/v1/driving/';
+          break;
+        default: // 'car' and 'motorcycle' both use driving
+          routeBase = 'https://router.project-osrm.org/route/v1/driving/';
+      }
       final url = Uri.parse(
-        'https://router.project-osrm.org/route/v1/driving/'
+        '$routeBase'
         '${origin.longitude},${origin.latitude};'
         '${_currentDestination.longitude},${_currentDestination.latitude}'
         '?overview=full&geometries=geojson',
@@ -715,7 +724,12 @@ class _MapDirectionPageState extends State<MapDirectionPage> {
     final selected = _selectedMode == mode;
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _selectedMode = mode),
+        onTap: () {
+          if (_selectedMode != mode) {
+            setState(() => _selectedMode = mode);
+            _loadRoute();
+          }
+        },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 8),

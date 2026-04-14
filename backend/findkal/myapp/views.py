@@ -158,7 +158,13 @@ class RegisterSendVerificationView(APIView):
 
         code = EmailVerification.generate_code()
         PendingEmailVerification.objects.create(email=email, code=code)
-        _send_otp_email(email, code)
+        try:
+            _send_otp_email(email, code)
+        except Exception as e:
+            return Response(
+                {"error": f"Gagal mengirim email verifikasi: {e}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
         return Response({"detail": "Kode verifikasi dikirim ke email kamu."}, status=status.HTTP_200_OK)
 
@@ -305,7 +311,13 @@ class PasswordResetRequestView(APIView):
             code=code,
             purpose=EmailVerification.Purpose.RESET_PASSWORD,
         )
-        _send_otp_email(user.email, code)
+        try:
+            _send_otp_email(user.email, code)
+        except Exception as e:
+            return Response(
+                {"error": f"Gagal mengirim email: {e}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
         return Response(
             {"email": user.email},
@@ -338,7 +350,13 @@ class PasswordResetResendView(APIView):
             code=code,
             purpose=EmailVerification.Purpose.RESET_PASSWORD,
         )
-        _send_otp_email(user.email, code)
+        try:
+            _send_otp_email(user.email, code)
+        except Exception as e:
+            return Response(
+                {"error": f"Gagal mengirim email: {e}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
         return Response(
             {"detail": "Kode baru sudah dikirim ulang melalui email. Segera cek inbox kamu."},
@@ -581,15 +599,16 @@ class UnggahanListCreateView(APIView):
         unggahans = Unggahan.objects.select_related("user").prefetch_related("images").all()
 
         # Optional proximity filter: ?lat=X&lng=Y
+        # Posts with no coordinates are always included (location unknown).
         try:
             user_lat = float(request.query_params["lat"])
             user_lng = float(request.query_params["lng"])
             filtered = []
             for u in unggahans:
-                if u.latitude is not None and u.longitude is not None:
-                    dist = _haversine_km(user_lat, user_lng, u.latitude, u.longitude)
-                    if dist <= _NEARBY_RADIUS_KM:
-                        filtered.append(u)
+                if u.latitude is None or u.longitude is None:
+                    filtered.append(u)
+                elif _haversine_km(user_lat, user_lng, u.latitude, u.longitude) <= _NEARBY_RADIUS_KM:
+                    filtered.append(u)
             unggahans = filtered
         except (KeyError, ValueError, TypeError):
             # No valid lat/lng provided — return all
@@ -816,7 +835,7 @@ class SurveySubmitView(APIView):
 # ---------------------------------------------------------------------------
 # Trip Planner endpoint (rule-based, uses FindKal Unggahan data)
 # POST /api/ai/trip-plan/
-# Body: { province, city (optional), duration (days), budget_id }
+# Body: { province, city (optional), duration (days), budget_id, themes (optional list) }
 # ---------------------------------------------------------------------------
 _BUDGET_MAP = {
     "hemat":    ["Rp 1k - Rp 50k"],
@@ -827,11 +846,21 @@ _BUDGET_MAP = {
 }
 
 _BUDGET_LABELS = {
-    "hemat":    "< Rp 50.000 per hari",
-    "budget":   "Rp 50.000 – Rp 100.000 per hari",
-    "menengah": "Rp 100.000 – Rp 200.000 per hari",
-    "premium":  "Rp 200.000 – Rp 1.500.000 per hari",
-    "luxury":   "> Rp 1.500.000 per hari",
+    "hemat":    "< Rp100.000",
+    "budget":   "Rp100.000 – Rp300.000",
+    "menengah": "Rp300.000 – Rp700.000",
+    "premium":  "Rp700.000 – Rp1.500.000",
+    "luxury":   "> Rp1.500.000",
+}
+
+# Keywords to match themes against nama_tempat and ulasan
+_THEME_KEYWORDS = {
+    "Nature":           ["park", "alam", "taman", "hutan", "pantai", "danau", "gunung", "bukit", "kebun", "square", "outdoor"],
+    "Shopping":         ["mall", "aeon", "market", "shop", "plaza", "pasar", "store", "boutique"],
+    "Wellness":         ["spa", "gym", "sport", "fitness", "yoga", "padel", "racquet", "tennis", "badminton", "renang", "kolam"],
+    "Entertainment":    ["playground", "playtopia", "funtasia", "ocean park", "theme park", "wahana", "hiburan", "cinema", "bioskop"],
+    "Food & drinks":    ["cafe", "kopi", "restoran", "restaurant", "kuliner", "makan", "bread", "bakery", "coffee", "bistro", "warung"],
+    "Culture & History": ["museum", "heritage", "sejarah", "budaya", "monument", "tugu", "cultural", "library", "perpustakaan", "peringatan"],
 }
 
 _VISIT_TIMES = ["09.00 AM", "12.00 PM", "03.00 PM", "06.00 PM"]
@@ -843,6 +872,7 @@ class TripPlanView(APIView):
         city      = (request.data.get("city") or "").strip()
         duration  = int(request.data.get("duration") or 1)
         budget_id = (request.data.get("budget_id") or "menengah").strip()
+        themes    = request.data.get("themes") or []
 
         budget_choices = _BUDGET_MAP.get(budget_id, _BUDGET_MAP["menengah"])
         budget_label   = _BUDGET_LABELS.get(budget_id, "")
@@ -860,6 +890,21 @@ class TripPlanView(APIView):
         # Fall back to all posts (sorted by rating) if too few results
         if qs.count() < 3:
             qs = Unggahan.objects.all().order_by("-rating")
+
+        # Filter by themes using keyword matching against nama_tempat + ulasan
+        if themes:
+            keywords = []
+            for theme in themes:
+                keywords.extend(_THEME_KEYWORDS.get(theme, []))
+
+            if keywords:
+                theme_filter = Q()
+                for kw in keywords:
+                    theme_filter |= Q(nama_tempat__icontains=kw) | Q(ulasan__icontains=kw)
+                theme_qs = qs.filter(theme_filter)
+                # Only apply theme filter if it yields enough results
+                if theme_qs.count() >= 3:
+                    qs = theme_qs
 
         # Deduplicate by nama_tempat (keep first = highest rated due to ordering)
         seen_names = set()
@@ -890,10 +935,15 @@ class TripPlanView(APIView):
                 "title":     u.nama_tempat,
                 "details":   f"{detail_text}\nBudget: {u.budget}",
                 "image_url": image_url,
+                "latitude":  u.latitude,
+                "longitude": u.longitude,
             })
 
         location_label = city if city else province
-        vibes = f"Perjalanan {duration} hari di {location_label} dengan budget {_BUDGET_LABELS.get(budget_id, '').split(' per')[0]}"
+        theme_label = ", ".join(themes) if themes else ""
+        vibes = f"Perjalanan {duration} hari di {location_label} dengan budget {budget_label}"
+        if theme_label:
+            vibes += f", tema {theme_label}"
 
         return Response({
             "place_count":     len(places),

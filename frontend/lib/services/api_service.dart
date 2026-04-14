@@ -5,12 +5,11 @@ import 'package:http/io_client.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 // Toggle this when switching between emulator and physical device
-const bool _usePhysicalDevice = true;
+
 
 String get _baseUrl {
   if (kIsWeb) return 'http://localhost:8000/api';
-  if (_usePhysicalDevice) return 'http://${dotenv.env['ipaddress']}:8000/api';
-  return 'http://10.0.2.2:8000/api'; // Android emulator
+  return 'http://${dotenv.env['ipaddress']}:8000/api';
 }
 
 /// Creates an http client with a 10-second socket connection timeout.
@@ -412,6 +411,7 @@ class ApiService {
     String? city,
     required int duration,
     required String budgetId,
+    List<String> themes = const [],
   }) async {
     try {
       final response = await http
@@ -423,6 +423,7 @@ class ApiService {
               'city': city ?? '',
               'duration': duration,
               'budget_id': budgetId,
+              'themes': themes,
             }),
           )
           .timeout(const Duration(seconds: 15));

@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 class AiTripDetailPage extends StatefulWidget {
   final String tripName;
   final List<Map<String, dynamic>> places;
+  final List<Map<String, dynamic>> transport;
 
   const AiTripDetailPage({
     super.key,
     required this.tripName,
-    required this.places,
+    this.places = const [],
+    this.transport = const [],
   });
 
   @override
@@ -345,7 +349,7 @@ class _AiTripDetailPageState extends State<AiTripDetailPage> {
                               width: 80,
                               height: 80,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, e) => _imagePlaceholder(),
+                              errorBuilder: (context, e, stack) => _imagePlaceholder(),
                             )
                           : _imagePlaceholder(),
                     ),
@@ -578,8 +582,49 @@ class MapPreviewCard extends StatelessWidget {
 
   const MapPreviewCard({super.key, required this.items});
 
+  static const _defaultCenter = LatLng(-6.302640, 106.639383); // BSD City
+
   @override
   Widget build(BuildContext context) {
+    final validItems = items
+        .where((p) => p['latitude'] != null && p['longitude'] != null)
+        .toList();
+    final points = validItems
+        .map((p) => LatLng(
+              (p['latitude'] as num).toDouble(),
+              (p['longitude'] as num).toDouble(),
+            ))
+        .toList();
+
+    MapOptions mapOptions;
+    if (points.length >= 2) {
+      mapOptions = MapOptions(
+        initialCameraFit: CameraFit.coordinates(
+          coordinates: points,
+          padding: const EdgeInsets.all(64),
+        ),
+        interactionOptions: const InteractionOptions(
+          flags: InteractiveFlag.none,
+        ),
+      );
+    } else if (points.length == 1) {
+      mapOptions = MapOptions(
+        initialCenter: points.first,
+        initialZoom: 15,
+        interactionOptions: const InteractionOptions(
+          flags: InteractiveFlag.none,
+        ),
+      );
+    } else {
+      mapOptions = const MapOptions(
+        initialCenter: _defaultCenter,
+        initialZoom: 14,
+        interactionOptions: InteractionOptions(
+          flags: InteractiveFlag.none,
+        ),
+      );
+    }
+
     return Container(
       width: double.infinity,
       height: 320,
@@ -587,7 +632,7 @@ class MapPreviewCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha:0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -595,175 +640,38 @@ class MapPreviewCard extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return Stack(
-              children: [
-                Image.network(
-                  'https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=800&q=80',
-                  width: double.infinity,
-                  height: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) =>
-                      Container(color: Colors.grey[300]),
-                ),
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black.withValues(alpha:0.4),
-                        Colors.black.withValues(alpha:0.2),
-                        Colors.black.withValues(alpha:0.5),
-                      ],
-                    ),
-                  ),
-                ),
-                CustomPaint(
-                  size: Size(constraints.maxWidth, 320),
-                  painter: _RoutePainter(),
-                ),
-                if (items.isNotEmpty) ...[
-                  _buildFloatingCard(
-                    top: 16,
-                    left: constraints.maxWidth * 0.05,
-                    title: items[0]['title'] ?? '',
-                    imageUrl: items[0]['image_url'] as String?,
-                    info: items[0]['time'] ?? '',
-                  ),
-                  _buildMarker(top: 86, left: constraints.maxWidth * 0.25),
-                ],
-                if (items.length > 1) ...[
-                  _buildFloatingCard(
-                    top: 110,
-                    right: constraints.maxWidth * 0.05,
-                    title: items[1]['title'] ?? '',
-                    imageUrl: items[1]['image_url'] as String?,
-                    info: items[1]['time'] ?? '',
-                  ),
-                  _buildMarker(top: 136, left: constraints.maxWidth * 0.70),
-                ],
-                if (items.length > 2) ...[
-                  _buildFloatingCard(
-                    bottom: 16,
-                    left: constraints.maxWidth * 0.15,
-                    title: items[2]['title'] ?? '',
-                    imageUrl: items[2]['image_url'] as String?,
-                    info: items[2]['time'] ?? '',
-                  ),
-                  _buildMarker(top: 226, left: constraints.maxWidth * 0.40),
-                ],
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMarker({required double top, required double left}) {
-    return Positioned(
-      top: top,
-      left: left,
-      child: Container(
-        width: 14,
-        height: 14,
-        decoration: BoxDecoration(
-          color: const Color(0xFF9CCCD0),
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white, width: 2.5),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha:0.3),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFloatingCard({
-    double? top,
-    double? bottom,
-    double? left,
-    double? right,
-    required String title,
-    String? imageUrl,
-    required String info,
-  }) {
-    return Positioned(
-      top: top,
-      bottom: bottom,
-      left: left,
-      right: right,
-      child: Container(
-        width: 150,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha:0.95),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha:0.15),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
+        child: FlutterMap(
+          options: mapOptions,
           children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              child: imageUrl != null
-                  ? Image.network(
-                      imageUrl,
-                      height: 50,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, e) => Container(
-                        height: 50,
-                        color: Colors.grey[300],
-                        child: const Icon(Icons.place, size: 20, color: Colors.grey),
-                      ),
-                    )
-                  : Container(
-                      height: 50,
-                      color: Colors.grey[300],
-                      child: const Icon(Icons.place, size: 20, color: Colors.grey),
-                    ),
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.findkal.app',
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 8.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    info,
-                    style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 10,
-                      color: Color(0xFF4AA5A6),
-                      fontWeight: FontWeight.w600,
-                    ),
+            if (points.length >= 2)
+              PolylineLayer(
+                polylines: [
+                  Polyline(
+                    points: points,
+                    color: const Color(0xFF4AA5A6),
+                    strokeWidth: 3.5,
                   ),
                 ],
               ),
+            MarkerLayer(
+              markers: [
+                for (int i = 0; i < validItems.length; i++)
+                  Marker(
+                    point: points[i],
+                    width: 155,
+                    height: 100,
+                    alignment: Alignment.bottomCenter,
+                    child: _MapFloatingCard(
+                      title: validItems[i]['title'] ?? '',
+                      imageUrl: validItems[i]['image_url'] as String?,
+                      time: validItems[i]['time'] ?? '',
+                    ),
+                  ),
+              ],
             ),
           ],
         ),
@@ -772,22 +680,87 @@ class MapPreviewCard extends StatelessWidget {
   }
 }
 
-class _RoutePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFF9CCCD0).withValues(alpha:0.9)
-      ..strokeWidth = 3.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+class _MapFloatingCard extends StatelessWidget {
+  final String title;
+  final String? imageUrl;
+  final String time;
 
-    final path = Path();
-    path.moveTo(size.width * 0.25 + 7, 86 + 7);
-    path.quadraticBezierTo(size.width * 0.5, 95, size.width * 0.70 + 7, 136 + 7);
-    path.quadraticBezierTo(size.width * 0.6, 200, size.width * 0.40 + 7, 226 + 7);
-    canvas.drawPath(path, paint);
+  const _MapFloatingCard({
+    required this.title,
+    this.imageUrl,
+    required this.time,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.95),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.15),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            child: imageUrl != null
+                ? Image.network(
+                    imageUrl!,
+                    height: 50,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => Container(
+                      height: 50,
+                      color: Colors.grey[300],
+                      child: const Icon(Icons.place, size: 20, color: Colors.grey),
+                    ),
+                  )
+                : Container(
+                    height: 50,
+                    color: Colors.grey[300],
+                    child: const Icon(Icons.place, size: 20, color: Colors.grey),
+                  ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 6.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  time,
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 10,
+                    color: Color(0xFF4AA5A6),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
